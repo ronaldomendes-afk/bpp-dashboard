@@ -388,6 +388,44 @@
     // Recarregar filtros do zero
     reloadFilters();
 
+    // Override do buildSellersVolList para mostrar Estimado vs Coletado real
+    window.buildSellersVolList = function() {
+      var sorted = window.data.slice().sort(function(a, b) { return b.vol - a.vol; }).slice(0, 8);
+      var maxVol = sorted.length > 0 ? Math.max(sorted[0].vol, sorted[0].estimado || sorted[0].vol) : 1;
+      var container = document.getElementById('sellers-vol-list');
+      if (!container) return;
+      container.innerHTML = '';
+      sorted.forEach(function(d) {
+        var est = d.estimado || d.vol;
+        var col = d.coletado || 0;
+        var pct = est > 0 ? Math.round((col / est) * 100) : 0;
+        var barEst = Math.max(2, (est / maxVol) * 100).toFixed(0) + '%';
+        var barCol = Math.max(0, (col / maxVol) * 100).toFixed(0) + '%';
+        var color = pct >= 80 ? '#00e09e' : pct >= 50 ? '#FFE600' : '#ff3a5c';
+        var name = d.seller.length > 18 ? d.seller.substring(0, 18) + '…' : d.seller;
+        container.innerHTML +=
+          '<div class="seller-vol-row">' +
+            '<div class="seller-vol-top">' +
+              '<div><span class="seller-vol-name">' + name + '</span>' +
+              '<span class="seller-vol-hub">' + d.hub + '</span></div>' +
+              '<span class="seller-vol-pct" style="color:' + color + '">' + pct + '%</span>' +
+            '</div>' +
+            '<div class="bar-double">' +
+              '<div class="bar-double-line">' +
+                '<div class="bar-mini-dot" style="background:#3d8bff"></div>' +
+                '<div class="bar-mini-bg"><div class="bar-mini-fill" style="width:' + barEst + ';background:#3d8bff"></div></div>' +
+                '<div class="bar-mini-val" style="color:#3d8bff">' + est.toLocaleString('pt-BR') + '</div>' +
+              '</div>' +
+              '<div class="bar-double-line">' +
+                '<div class="bar-mini-dot" style="background:var(--green)"></div>' +
+                '<div class="bar-mini-bg"><div class="bar-mini-fill" style="width:' + barCol + ';background:var(--green)"></div></div>' +
+                '<div class="bar-mini-val" style="color:' + (col > 0 ? 'var(--green)' : 'var(--muted)') + '">' + col.toLocaleString('pt-BR') + '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+      });
+    };
+
     // Re-renderizar tudo
     if (typeof renderAll === 'function') renderAll();
     if (typeof buildDestaqueCards === 'function') buildDestaqueCards();
