@@ -34,12 +34,6 @@
 
   var topbarRight = document.querySelector('.topbar-right');
 
-  // Esconder gráfico "Estimado vs Coletado" original (será substituído)
-  var volListEl = document.getElementById('sellers-vol-list');
-  if (volListEl && volListEl.closest('.chart-card')) {
-    volListEl.closest('.chart-card').style.display = 'none';
-  }
-
   if (topbarRight) {
     var exportBtn = topbarRight.querySelector('button[onclick*="exportarPDF"]');
     var wrap = document.createElement('div');
@@ -283,6 +277,57 @@
     return { raw: result, totalRows: result.length };
   }
 
+  // ── 5b. PARSER HISTÓRICO_DADOS ──────────────────────────────
+  function parseHistorico(text) {
+    var firstLine = text.split(/\r?\n/)[0];
+    var delim = ',';
+    if (firstLine.split('\t').length > firstLine.split(',').length) delim = '\t';
+    else if (firstLine.split(';').length > firstLine.split(',').length) delim = ';';
+    var lines = text.trim().split(/\r?\n/);
+    var headers = parseCSVLine(lines[0], delim).map(function(h) { return h.trim().replace(/^"|"$/g, ''); });
+    var idx = {};
+    headers.forEach(function(h, i) { idx[h] = i; });
+
+    var dataCol = idx['DATA'];
+    var pndCol = idx['PND SISTEMA'];
+    var colCol = idx['COLETADOS'];
+    if (dataCol === undefined || colCol === undefined) return { error: 'Colunas DATA/COLETADOS não encontradas' };
+
+    var semanas = {};
+    for (var i = 1; i < lines.length; i++) {
+      var cols = parseCSVLine(lines[i], delim);
+      if (!cols || cols.length < 3) continue;
+      var dataStr = (cols[dataCol] || '').trim();
+      if (!dataStr) continue;
+      var parts = dataStr.split('/');
+      if (parts.length !== 3) continue;
+      var d = new Date(parts[2], parts[1] - 1, parts[0]);
+      if (isNaN(d.getTime())) continue;
+
+      // ISO week number
+      var jan1 = new Date(d.getFullYear(), 0, 1);
+      var week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+      var key = 'W' + ('0' + week).slice(-2);
+
+      var pnd = pndCol !== undefined ? (parseInt(cols[pndCol]) || 0) : 0;
+      var col = parseInt(cols[colCol]) || 0;
+      var est = pnd + col; // Estimado = pendente + coletado
+
+      if (!semanas[key]) semanas[key] = { sem: key, est: 0, col: 0 };
+      semanas[key].est += est;
+      semanas[key].col += col;
+    }
+
+    var result = Object.values(semanas).sort(function(a, b) {
+      return parseInt(a.sem.substring(1)) - parseInt(b.sem.substring(1));
+    }).map(function(s) {
+      s.efic = s.est > 0 ? Math.round(s.col / s.est * 1000) / 10 : 0;
+      return s;
+    });
+
+    return { semanas: result, totalRows: lines.length - 1 };
+  }
+
   // ── 6. UPLOAD HANDLER ───────────────────────────────────────
   function handleCSVUpload(ev) {
     var file = ev.target.files[0];
@@ -291,7 +336,20 @@
     reader.onload = function(e) {
       try {
         var text = e.target.result;
-        var isBaseXD = text.indexOf('Pacotes estimados') >= 0 || text.indexOf('PACOTES ESTIMADOS') >= 0 || text.indexOf('Parada') >= 0;
+
+        // Detect CSV type
+        var isHistorico = text.indexOf('PND SISTEMA') >= 0 && text.indexOf('COLETADOS') >= 0 && text.indexOf('Seller_Ref') >= 0;
+        var isBaseXD = text.indexOf('Pacotes estimados') >= 0 || text.indexOf('Parada') >= 0;
+
+        if (isHistorico) {
+          var hist = parseHistorico(text);
+          if (hist.error) { showToast('error', '❌ Erro', hist.error, 6000); return; }
+          localStorage.setItem('bpp_historico', JSON.stringify({ semanas: hist.semanas, timestamp: new Date().toISOString(), filename: file.name }));
+          applyHistoricoData(hist.semanas);
+          showToast('success', '✅ Histórico carregado!', hist.semanas.length + ' semanas · ' + file.name, 5000);
+          return;
+        }
+
         var result;
         if (isBaseXD) {
           result = parseBaseXD(text);
@@ -365,6 +423,7 @@
     if (obj.topCollected) overrideTop10Pos(obj.topCollected);
     if (obj.horaLabels) overrideHoraPos(obj.horaLabels, obj.horaCol);
     if (obj.topTrans && obj.horaLabels) overrideTransHora(obj.topTrans, obj.horaLabels);
+    overrideSellersVolList();
 
     // Reload filters & render
     reloadFilters();
@@ -428,6 +487,95 @@
     };
   }
 
+  function overrideSellersVolList() {
+    window.buildSellersVolList = function() {
+      var sorted = (window.data || []).slice().sort(function(a, b) { return b.vol - a.vol; }).slice(0, 8);
+      var container = document.getElementById('sellers-vol-list');
+      if (!container || sorted.length === 0) return;
+      var maxVol = Math.max(sorted[0].estimado || sorted[0].vol, sorted[0].vol);
+      container.innerHTML = '';
+      sorted.forEach(function(d) {
+        var est = d.estimado || d.vol;
+        var col = d.coletado || 0;
+        var pct = est > 0 ? Math.round(col / est * 100) : 0;
+        var barEst = Math.max(2, est / maxVol * 100).toFixed(0) + '%';
+        var barCol = Math.max(0, col / maxVol * 100).toFixed(0) + '%';
+        var color = pct >= 80 ? '#00e09e' : pct >= 50 ? '#FFE600' : '#ff3a5c';
+        var name = d.seller.length > 18 ? d.seller.substring(0, 18) + '…' : d.seller;
+        container.innerHTML +=
+          '<div class="seller-vol-row">' +
+            '<div class="seller-vol-top">' +
+              '<div><span class="seller-vol-name">' + name + '</span>' +
+              '<span class="seller-vol-hub">' + (d.hub || '') + '</span></div>' +
+              '<span class="seller-vol-pct" style="color:' + color + '">' + pct + '%</span>' +
+            '</div>' +
+            '<div class="bar-double">' +
+              '<div class="bar-double-line">' +
+                '<div class="bar-mini-dot" style="background:#3d8bff"></div>' +
+                '<div class="bar-mini-bg"><div class="bar-mini-fill" style="width:' + barEst + ';background:#3d8bff"></div></div>' +
+                '<div class="bar-mini-val" style="color:#3d8bff">' + est.toLocaleString('pt-BR') + '</div>' +
+              '</div>' +
+              '<div class="bar-double-line">' +
+                '<div class="bar-mini-dot" style="background:#00e09e"></div>' +
+                '<div class="bar-mini-bg"><div class="bar-mini-fill" style="width:' + barCol + ';background:#00e09e"></div></div>' +
+                '<div class="bar-mini-val" style="color:' + (col > 0 ? '#00e09e' : '#5a7099') + '">' + col.toLocaleString('pt-BR') + '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+      });
+    };
+  }
+
+  // ── 8b. APPLY HISTÓRICO DATA ────────────────────────────────
+  function applyHistoricoData(semanas) {
+    if (!semanas || semanas.length === 0) return;
+
+    // Update EFIC_SEMANAL global for the efficiency chart
+    window.EFIC_SEMANAL = semanas;
+
+    // Update W comparison card
+    if (semanas.length >= 2) {
+      var current = semanas[semanas.length - 1];
+      var previous = semanas[semanas.length - 2];
+      var diff = Math.round((current.efic - previous.efic) * 10) / 10;
+      var melhorou = diff >= 0;
+      var color = melhorou ? 'var(--green)' : 'var(--red)';
+      var dimColor = melhorou ? 'var(--green-dim)' : 'var(--red-dim)';
+
+      var vsEl = document.getElementById('k-vs-semana');
+      var vsSub = document.getElementById('k-vs-sub');
+      var vsIcon = document.getElementById('vs-semana-icon');
+      var vsBar = document.getElementById('k-vs-bar');
+
+      if (vsEl) { vsEl.textContent = (melhorou ? '+' : '') + diff + 'pp'; vsEl.style.color = color; }
+      if (vsSub) { vsSub.textContent = previous.sem + ': ' + previous.efic + '% → ' + current.sem + ': ' + current.efic + '%'; vsSub.style.color = color; vsSub.style.background = dimColor; }
+      if (vsIcon) vsIcon.textContent = melhorou ? '📈' : '📉';
+      if (vsBar) { vsBar.style.width = Math.min(100, Math.abs(diff) * 5) + '%'; vsBar.style.background = color; }
+    }
+
+    // Override the efficiency weekly chart
+    window.buildEficSemanal = function() {
+      if (typeof destroyChart === 'function') destroyChart('eficsemanal');
+      var ctx = document.getElementById('cEficSemanal');
+      if (!ctx) return;
+      var labels = semanas.map(function(s) { return s.sem; });
+      var vals = semanas.map(function(s) { return s.efic; });
+      var ci = window.chartInstances || window.charts || {};
+      ci['eficsemanal'] = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: { labels: labels, datasets: [{ label: 'Eficiência (%)', data: vals, borderColor: '#00e09e', backgroundColor: 'rgba(0,224,158,.1)', pointBackgroundColor: vals.map(function(v) { return v >= 80 ? '#00e09e' : v >= 50 ? '#ffb800' : '#ff3a5c'; }), pointRadius: 6, pointHoverRadius: 9, borderWidth: 2.5, fill: true, tension: 0.35 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { color: '#8298b8', font: { family: 'IBM Plex Mono', size: 10 } }, grid: { color: 'rgba(30,43,66,.4)' } }, y: { min: 0, max: 100, ticks: { color: '#8298b8', font: { family: 'IBM Plex Mono', size: 10 }, callback: function(v) { return v + '%'; } }, grid: { color: 'rgba(30,43,66,.4)' } } },
+          animation: { onComplete: function() { var ch = this, cx = ch.ctx; cx.save(); ch.data.datasets.forEach(function(_, i) { var meta = ch.getDatasetMeta(i); cx.font = 'bold 10px IBM Plex Mono'; cx.textAlign = 'center'; cx.textBaseline = 'bottom'; meta.data.forEach(function(pt, j) { var v = ch.data.datasets[i].data[j]; cx.fillStyle = v >= 80 ? '#00e09e' : v >= 50 ? '#ffb800' : '#ff3a5c'; cx.fillText(v + '%', pt.x, pt.y - 8); }); }); cx.restore(); } }
+        }
+      });
+      if (window.chartInstances) window.chartInstances['eficsemanal'] = ci['eficsemanal'];
+      if (window.charts) window.charts['eficsemanal'] = ci['eficsemanal'];
+    };
+  }
+
   // ── 9. FILTERS ─────────────────────────────────────────────
   function reloadFilters() {
     var fh = document.getElementById('f-hub');
@@ -450,6 +598,7 @@
   function clearCSVData() {
     if (!confirm('Limpar dados do CSV e voltar aos dados padrão?')) return;
     localStorage.removeItem('bpp_csv_data');
+    localStorage.removeItem('bpp_historico');
     try { window.RAW = RAW_DATA_HOJE; } catch(e) { try { window.RAW = FALLBACK_DATA; } catch(e2) { window.RAW = []; } }
     try { window.EFIC_HOJE = EFIC_HOJE_FIXO; } catch(e) {}
     window.data = (window.RAW || []).slice();
@@ -464,16 +613,32 @@
 
   // ── 11. LOAD FROM CACHE ────────────────────────────────────
   function loadFromLocalStorage() {
+    var loaded = false;
     try {
       var s = localStorage.getItem('bpp_csv_data');
-      if (!s) return false;
-      var obj = JSON.parse(s);
-      if (!obj.raw || obj.raw.length === 0) { localStorage.removeItem('bpp_csv_data'); return false; }
-      var age = Math.round((Date.now() - new Date(obj.timestamp).getTime()) / 3600000);
-      applyCSVData(obj);
-      if (age > 12) showToast('warning', '⚠ Dados de ' + age + 'h atrás', 'Carregue um CSV atualizado', 6000);
-      return true;
-    } catch(e) { localStorage.removeItem('bpp_csv_data'); return false; }
+      if (s) {
+        var obj = JSON.parse(s);
+        if (obj.raw && obj.raw.length > 0) {
+          var age = Math.round((Date.now() - new Date(obj.timestamp).getTime()) / 3600000);
+          applyCSVData(obj);
+          if (age > 12) showToast('warning', '⚠ Dados de ' + age + 'h atrás', 'Carregue um CSV atualizado', 6000);
+          loaded = true;
+        }
+      }
+    } catch(e) { localStorage.removeItem('bpp_csv_data'); }
+
+    // Also load historico if available
+    try {
+      var h = localStorage.getItem('bpp_historico');
+      if (h) {
+        var hObj = JSON.parse(h);
+        if (hObj.semanas && hObj.semanas.length > 0) {
+          applyHistoricoData(hObj.semanas);
+        }
+      }
+    } catch(e) { localStorage.removeItem('bpp_historico'); }
+
+    return loaded;
   }
 
   // ── 12. INTERCEPT LOAD ─────────────────────────────────────
