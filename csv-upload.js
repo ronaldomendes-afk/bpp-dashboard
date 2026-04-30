@@ -442,6 +442,7 @@
 
     var hubs = []; var trans = []; var sellers = [];
     var hubSet = {}, transSet = {}, sellerSet = {};
+    window.RAW = window.RAW || [];
     window.RAW.forEach(function(d) {
       if (d.hub && !hubSet[d.hub]) { hubs.push(d.hub); hubSet[d.hub] = 1; }
       if (d.trans && !transSet[d.trans]) { trans.push(d.trans); transSet[d.trans] = 1; }
@@ -459,10 +460,10 @@
     if (!confirm('Limpar dados do CSV e voltar aos dados padrão do dashboard?')) return;
     localStorage.removeItem('bpp_csv_data');
 
-    // Restaurar dados originais
-    if (typeof RAW_DATA_HOJE !== 'undefined') window.RAW = window.RAW_DATA_HOJE;
-    if (typeof EFIC_HOJE_FIXO !== 'undefined') window.EFIC_HOJE = window.EFIC_HOJE_FIXO;
-    window.data = window.RAW.slice();
+    // Restaurar dados originais (const não fica em window, acessa direto)
+    try { window.RAW = RAW_DATA_HOJE; } catch(e) { try { window.RAW = FALLBACK_DATA; } catch(e2) { window.RAW = []; } }
+    try { window.EFIC_HOJE = EFIC_HOJE_FIXO; } catch(e) {}
+    window.data = (window.RAW || []).slice();
 
     updateUploadUI(false);
 
