@@ -63,6 +63,12 @@
 
   // Upload wrap (inserido na topbar, antes do botão PDF)
   const topbarRight = document.querySelector('.topbar-right');
+
+  // Esconder gráfico "Estimado vs Coletado" (dados insuficientes no CSV)
+  var volListEl = document.getElementById('sellers-vol-list');
+  if (volListEl && volListEl.closest('.chart-card')) {
+    volListEl.closest('.chart-card').style.display = 'none';
+  }
   if (topbarRight) {
     const exportBtn = topbarRight.querySelector('button[onclick*="exportarPDF"]');
     const wrap = document.createElement('div');
