@@ -262,31 +262,53 @@ function pHist(t){
   h.forEach(function(v,i){xi[v]=i;});
   var iDt=xi['DATA'],iTr=xi['TRANSP'],iPn=xi['PND SISTEMA'],iSl=xi['Seller_Ref'],iHb=xi['HUB_ID'],iCl=xi['COLETADOS'];
   if(iDt===undefined)return{error:'Coluna DATA não encontrada no Histórico'};
-  var bw={},sm={},ds=new Set();
+  var bw={},sm={},ds=new Set(),wkFirstDate={},wkLastDate={};
   for(var i=1;i<ls.length;i++){
     var c=pl(ls[i],d);
     if(!c||c.length<4)continue;
     var dt=(c[iDt]||'').trim(),tr=(c[iTr]||'').trim(),hb=(c[iHb]||'').trim(),sl=(c[iSl]||'').trim();
     var pn=parseInt(c[iPn]||0)||0,cl=parseInt(c[iCl]||0)||0;
     if(!dt)continue;
-    ds.add(dt);
-    if(!bw[dt])bw[dt]={hubs:{},trans:{},totPnd:0,totCol:0,sellers:{}};
-    var w=bw[dt];
+    // Group by ISO week key (YYYY-Www) instead of raw date
+    var wk=_isoWkKey(dt);
+    ds.add(wk);
+    // Track earliest date per week for label
+    if(!wkFirstDate[wk]||_dtObj(dt)<_dtObj(wkFirstDate[wk]))wkFirstDate[wk]=dt;
+    if(!wkLastDate[wk]||_dtObj(dt)>_dtObj(wkLastDate[wk]))wkLastDate[wk]=dt;
+    if(!bw[wk])bw[wk]={hubs:{},trans:{},totPnd:0,totCol:0,sellers:{}};
+    var w=bw[wk];
     w.totPnd+=pn;w.totCol+=cl;w.sellers[sl]=1;
     if(hb){if(!w.hubs[hb])w.hubs[hb]={pnd:0,col:0};w.hubs[hb].pnd+=pn;w.hubs[hb].col+=cl;}
     if(tr){if(!w.trans[tr])w.trans[tr]={pnd:0,col:0};w.trans[tr].pnd+=pn;w.trans[tr].col+=cl;}
-    if(sl){if(!sm[sl])sm[sl]={};if(!sm[sl][dt])sm[sl][dt]={pnd:0,col:0};sm[sl][dt].pnd+=pn;sm[sl][dt].col+=cl;}
+    if(sl){if(!sm[sl])sm[sl]={};if(!sm[sl][wk])sm[sl][wk]={pnd:0,col:0};sm[sl][wk].pnd+=pn;sm[sl][wk].col+=cl;}
   }
-  var sds=Array.from(ds).sort(function(a,b){var pa=a.split('/'),pb=b.split('/');return new Date(pa[2],pa[1]-1,pa[0])-new Date(pb[2],pb[1]-1,pb[0]);});
-  return{byWeek:bw,sellerMap:sm,dates:sds,n:ls.length-1};
+  var sds=Array.from(ds).sort();
+  return{byWeek:bw,sellerMap:sm,dates:sds,wkFirstDate:wkFirstDate,wkLastDate:wkLastDate,n:ls.length-1};
 }
 
-function getWk(ds){
-  var p=ds.split('/'),d=new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));
-  var jan1=new Date(d.getFullYear(),0,1);
-  return Math.ceil((((d-jan1)/86400000)+jan1.getDay()+1)/7);
+function _dtObj(dt){var p=dt.split('/');return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));}
+function _isoWkKey(dt){
+  // Returns "YYYY-Www" ISO week key for a dd/mm/yyyy date string
+  var d=_dtObj(dt);
+  var jan4=new Date(d.getFullYear(),0,4); // Jan 4 is always in W1
+  var startW1=new Date(jan4);startW1.setDate(jan4.getDate()-(jan4.getDay()||7)+1);
+  var diff=d-startW1;
+  if(diff<0){// belongs to last year's last week
+    jan4=new Date(d.getFullYear()-1,0,4);startW1=new Date(jan4);startW1.setDate(jan4.getDate()-(jan4.getDay()||7)+1);diff=d-startW1;}
+  var wn=Math.floor(diff/604800000)+1;
+  var yr=d.getFullYear();
+  // check if W53 actually belongs to next year's W1
+  if(wn===53){var dec28=new Date(yr,11,28);if(d>dec28&&_isoWkKey(('0'+(dec28.getDate())).slice(-2)+'/'+'12'+'/'+yr)!==yr+'-W53')wn=1;yr=d.getFullYear()+(wn===1?1:0);}
+  return yr+'-W'+('0'+wn).slice(-2);
 }
-function wkLabel(dt){return 'W'+getWk(dt)+' ('+dt.substring(0,5)+')';}
+function wkLabel(wk){
+  // wk is "YYYY-Www"
+  if(!HS||!HS.wkFirstDate)return wk;
+  var f=HS.wkFirstDate[wk]||'',l=HS.wkLastDate[wk]||'';
+  var wn=wk.split('-W')[1];
+  if(f===l||!l)return 'W'+wn+' ('+f.substring(0,5)+')';
+  return 'W'+wn+' ('+f.substring(0,5)+'~'+l.substring(0,5)+')';
+}
 function hEf(pnd,col){var t=pnd+col;return t>0?Math.round(col/t*100):0;}
 
 // ===== CSV2 HANDLER (HISTÓRICO) =====
@@ -298,12 +320,12 @@ function hCSV2(ev){
       var res=pHist(e.target.result);
       if(res.error){sToast('err','❌',res.error);return;}
       HS=res;
-      // populate week selectors
+      // populate week selectors — HS must be set before wkLabel
       var fw1=document.getElementById('fw1'),fw2=document.getElementById('fw2');
       fw1.innerHTML='';fw2.innerHTML='';
-      res.dates.forEach(function(dt){
-        var lb=wkLabel(dt);
-        fw1.add(new Option(lb,dt));fw2.add(new Option(lb,dt));
+      res.dates.forEach(function(wk){
+        var lb=wkLabel(wk);
+        fw1.add(new Option(lb,wk));fw2.add(new Option(lb,wk));
       });
       fw1.selectedIndex=0;
       fw2.selectedIndex=res.dates.length-1;
