@@ -388,22 +388,22 @@ td.td-days-2 { color:var(--yellow); font-weight:600; }
 </div>
 
 <script>
-let RAW = [];
-let data = [];
-let quickMode = 'all';
-let charts = {};
-let chartInstances = {};
-let EFIC_HOJE = {est:0, col:0, efic:0};
-let EFIC_SEMANAL = [];
-const PALETTE = ['#00c8ff','#ff7b3a','#a259ff','#00e09e','#ffb800','#ff3a5c','#3d8bff','#ff6b9d','#00d4aa','#ffd93d'];
-const HOURS = {labels:['06h','07h','08h','09h','10h','11h','12h','13h','14h','15h','16h','17h','18h'],vals:[0,0,0,0,0,0,0,0,0,0,0,0,0]};
-const DAYS_W = {labels:['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'],vals:[0,0,0,0,0,0,0]};
-const VEHICLE = {labels:['VUC','Caminhão Médio','Van','Toco','HR / Utilitário','Truck','Carreta'],vals:[0,0,0,0,0,0,0]};
-const REASONS = {labels:['Sem tentativa','Janela perdida','Endereço inacessível','Seller fechado','Rota não coberta','Capacidade'],vals:[0,0,0,0,0,0]};
+var RAW = [];
+var data = [];
+var quickMode = 'all';
+var charts = {};
+var chartInstances = {};
+var EFIC_HOJE = {est:0, col:0, efic:0};
+var EFIC_SEMANAL = [];
+var PALETTE = ['#00c8ff','#ff7b3a','#a259ff','#00e09e','#ffb800','#ff3a5c','#3d8bff','#ff6b9d','#00d4aa','#ffd93d'];
+var HOURS = {labels:['06h','07h','08h','09h','10h','11h','12h','13h','14h','15h','16h','17h','18h'],vals:[0,0,0,0,0,0,0,0,0,0,0,0,0]};
+var DAYS_W = {labels:['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'],vals:[0,0,0,0,0,0,0]};
+var VEHICLE = {labels:['VUC','Caminhão Médio','Van','Toco','HR / Utilitário','Truck','Carreta'],vals:[0,0,0,0,0,0,0]};
+var REASONS = {labels:['Sem tentativa','Janela perdida','Endereço inacessível','Seller fechado','Rota não coberta','Capacidade'],vals:[0,0,0,0,0,0]};
 
-const RAW_DATA_HOJE = [];
-const EFIC_HOJE_FIXO = {est:0,col:0,efic:0};
-const FALLBACK_DATA = [];
+var RAW_DATA_HOJE = [];
+var EFIC_HOJE_FIXO = {est:0,col:0,efic:0};
+var FALLBACK_DATA = [];
 
 const CHART_OPTS = {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1320',borderColor:'#1e2b42',borderWidth:1,titleColor:'#dce6f5',bodyColor:'#8298b8',padding:10,cornerRadius:8}}};
 const GRID_OPT = {color:'rgba(30,43,66,.6)'};
