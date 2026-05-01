@@ -1,8 +1,463 @@
 <!DOCTYPE html>
-<html>
-<head><title>BPP Test</title></head>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BPP · Performance de Coletas Seller</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b2e;
+  --card: #161b2e;
+  --card2: #0d1117;
+  --border: #1e2b42;
+  --border2: #243352;
+  --text: #dce6f5;
+  --muted: #5a7099;
+  --muted2: #8298b8;
+  --accent: #00c8ff;
+  --accent-dim: rgba(0,200,255,0.12);
+  --orange: #ff7b3a;
+  --orange-dim: rgba(255,123,58,0.12);
+  --red: #ff3a5c;
+  --red-dim: rgba(255,58,92,0.12);
+  --green: #00e09e;
+  --green-dim: rgba(0,224,158,0.12);
+  --purple: #a259ff;
+  --purple-dim: rgba(162,89,255,0.12);
+  --yellow: #FFE600;
+  --yellow-dim: rgba(255,230,0,0.12);
+  --meli: #FFE600;
+  --meli-dark: #1a1a2e;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { font-size:14px; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Sans', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; height: 52px;
+  background: var(--meli);
+  border-bottom: 2px solid #e6cf00;
+  position: sticky; top:0; z-index: 200;
+}
+.topbar-left { display:flex; align-items:center; gap:14px; }
+.bpp-badge {
+  background: var(--meli-dark); color: var(--meli); font-weight:700; font-size:12px;
+  padding:4px 10px; border-radius:6px; letter-spacing:.5px;
+}
+.topbar-title h2 { font-size:14px; font-weight:700; line-height:1.1; color: #1a1a2e; }
+.topbar-title p { font-size:11px; color: #333; margin-top:1px; }
+.topbar-right { display:flex; align-items:center; gap:16px; }
+.live-pill {
+  display:flex; align-items:center; gap:6px; padding:4px 12px;
+  background:var(--meli-dark); border:1px solid var(--meli-dark); border-radius:20px;
+  font-size:11px; font-weight:700; color:var(--meli);
+}
+.live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.topbar-time { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#1a1a2e; font-weight:600; }
+.alert-banner {
+  display:flex; align-items:center; justify-content:space-between;
+  margin: 16px 24px 0;
+  padding: 13px 18px;
+  background: rgba(255,58,92,0.08);
+  border: 1px solid rgba(255,58,92,0.35);
+  border-radius: 10px;
+  animation: slideIn .4s ease;
+}
+@keyframes slideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+.alert-left { display:flex; align-items:center; gap:12px; }
+.alert-icon { font-size:18px; }
+.alert-text { font-size:13px; color:var(--text); }
+.alert-text strong { color:var(--red); }
+.alert-text .highlight { color:var(--orange); font-weight:600; }
+.alert-badge {
+  padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700;
+  background:var(--red-dim); border:1px solid var(--red); color:var(--red);
+}
+.filters-bar {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  margin: 14px 24px 0;
+  padding: 14px 18px;
+  background: #001a40;
+  border: 1px solid #002a6e;
+  border-radius: 10px;
+}
+.filter-label { font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:1px; margin-right:4px; }
+select, .search-input, input[type=date] {
+  background: #001233; border: 1px solid #002a6e;
+  color: #c8d8f0; padding: 5px 10px; border-radius:7px;
+  font-family:'IBM Plex Sans',sans-serif; font-size:11px; cursor:pointer; outline:none;
+  transition: border-color .18s;
+}
+input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.6) sepia(1) saturate(3) hue-rotate(175deg); cursor:pointer; }
+select:hover, select:focus, .search-input:focus { border-color: #FFE600; color: #e8f0fe; }
+.search-input { width:160px; }
+.search-input::placeholder { color:var(--muted); }
+.filter-sep { width:1px; height:22px; background:var(--border); margin:0 4px; }
+.quick-btn {
+  padding:5px 14px; border-radius:7px; border:1px solid #002a6e;
+  background:transparent; color:#6090c0; font-family:'IBM Plex Sans',sans-serif;
+  font-size:12px; cursor:pointer; transition:all .18s; font-weight:500;
+}
+.quick-btn:hover { border-color:#FFE600; color:#FFE600; }
+.quick-btn.active { background:#FFE600; border-color:#FFE600; color:#001233; font-weight:700; }
+.filter-reset-btn {
+  margin-left:auto; padding:5px 14px; border-radius:7px;
+  border:1px solid #002a6e; background:transparent;
+  color:#6090c0; font-size:12px; cursor:pointer; font-family:'IBM Plex Sans',sans-serif;
+  transition:all .18s; display:flex; align-items:center; gap:5px;
+}
+.filter-reset-btn:hover { color:var(--text); border-color:var(--muted2); }
+.section-header {
+  display:flex; align-items:center; gap:10px;
+  margin: 20px 24px 12px;
+  font-size:11px; font-weight:600; color:var(--muted);
+  text-transform:uppercase; letter-spacing:1.5px;
+}
+.section-header::after { content:''; flex:1; height:1px; background:var(--border); }
+.kpi-row {
+  display:grid; grid-template-columns:repeat(10,1fr); gap:8px;
+  margin: 0 24px;
+}
+@media(max-width:1200px){.kpi-row{grid-template-columns:repeat(5,1fr);}}
+@media(max-width:700px){.kpi-row{grid-template-columns:repeat(3,1fr);}}
+.kpi-card {
+  border: none; border-radius: 10px; padding: 12px 13px 10px;
+  position:relative; overflow:hidden; transition: transform .18s, box-shadow .18s; cursor:default;
+}
+.kpi-card.kpi-red { background: linear-gradient(135deg,#2d0010,#1a0005); }
+.kpi-card.kpi-orange { background: linear-gradient(135deg,#2d1500,#1a0800); }
+.kpi-card.kpi-yellow { background: linear-gradient(135deg,#2d1f00,#1a1200); }
+.kpi-card.kpi-purple { background: linear-gradient(135deg,#1a0035,#0e0020); }
+.kpi-card.kpi-cyan { background: linear-gradient(135deg,#003040,#001a20); }
+.kpi-card.kpi-green { background: linear-gradient(135deg,#003020,#001a10); }
+.kpi-card:hover { transform:translateY(-2px); }
+.kpi-card::after { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; }
+.kpi-red::after { background:var(--red); box-shadow:0 0 8px var(--red); }
+.kpi-orange::after { background:var(--orange); box-shadow:0 0 8px var(--orange); }
+.kpi-yellow::after { background:var(--yellow); }
+.kpi-purple::after { background:var(--purple); }
+.kpi-cyan::after { background:var(--accent); }
+.kpi-green::after { background:var(--green); }
+.kpi-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.kpi-icon { font-size:16px; }
+.kpi-num { font-size:26px; font-weight:700; line-height:1; letter-spacing:-1px; margin-bottom:3px; }
+.kpi-red .kpi-num { color:var(--red); }
+.kpi-orange .kpi-num { color:var(--orange); }
+.kpi-yellow .kpi-num { color:var(--yellow); }
+.kpi-purple .kpi-num { color:var(--purple); }
+.kpi-cyan .kpi-num { color:var(--accent); }
+.kpi-green .kpi-num { color:var(--green); }
+.kpi-lbl { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:600; margin-bottom:8px; }
+.kpi-sub { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:10px; font-weight:600; }
+.kpi-red .kpi-sub { background:var(--red-dim); color:var(--red); }
+.kpi-orange .kpi-sub { background:var(--orange-dim); color:var(--orange); }
+.kpi-yellow .kpi-sub { background:var(--yellow-dim); color:var(--yellow); }
+.kpi-purple .kpi-sub { background:var(--purple-dim); color:var(--purple); }
+.kpi-cyan .kpi-sub { background:var(--accent-dim); color:var(--accent); }
+.kpi-green .kpi-sub { background:var(--green-dim); color:var(--green); }
+.kpi-bar { height:2px; background:var(--border); border-radius:2px; margin-top:10px; overflow:hidden; }
+.kpi-bar-fill { height:100%; border-radius:2px; }
+.kpi-red .kpi-bar-fill { background:var(--red); }
+.kpi-orange .kpi-bar-fill { background:var(--orange); }
+.kpi-yellow .kpi-bar-fill { background:var(--yellow); }
+.kpi-purple .kpi-bar-fill { background:var(--purple); }
+.kpi-cyan .kpi-bar-fill { background:var(--accent); }
+.kpi-green .kpi-bar-fill { background:var(--green); }
+.tabs-nav { display:flex; gap:6px; margin:20px 24px 0; border-bottom:1px solid var(--border); padding-bottom:0; }
+.tab-btn { display:flex; align-items:center; gap:7px; padding:9px 16px; border-radius:8px 8px 0 0; border:1px solid transparent; border-bottom:none; background:transparent; color:var(--muted2); font-family:'IBM Plex Sans',sans-serif; font-size:12px; font-weight:600; cursor:pointer; transition:all .18s; position:relative; bottom:-1px; }
+.tab-btn:hover { color:var(--text); background:var(--card); border-color:var(--border); }
+.tab-btn.active { background:var(--card); border-color:var(--border); color:var(--text); border-bottom-color:var(--card); }
+.tab-btn .tab-dot { width:7px; height:7px; border-radius:50%; }
+.tab-panel { display:none; padding:0 24px 32px; }
+.tab-panel.active { display:block; }
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
+.three-col { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:14px; }
+.full-col { margin-top:14px; }
+@media(max-width:900px){ .two-col,.three-col{ grid-template-columns:1fr; } }
+.chart-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px 20px; transition:box-shadow .18s; }
+.chart-card:hover { box-shadow:0 0 0 1px var(--border2); }
+.cc-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+.cc-title { font-size:13px; font-weight:600; color:var(--text); }
+.cc-sub { font-size:11px; color:var(--muted); margin-bottom:14px; }
+.cc-tag { font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px; letter-spacing:.5px; }
+.tag-cyan { background:var(--accent-dim); color:var(--accent); }
+.tag-orange { background:var(--orange-dim); color:var(--orange); }
+.tag-red { background:var(--red-dim); color:var(--red); }
+.tag-green { background:var(--green-dim); color:var(--green); }
+.tag-purple { background:var(--purple-dim); color:var(--purple); }
+.chart-wrap { position:relative; }
+.h240 { height:240px; } .h280 { height:280px; } .h320 { height:320px; } .h360 { height:360px; }
+.ofensor-list { list-style:none; display:flex; flex-direction:column; gap:4px; }
+.ofensor-item { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:8px; background:var(--card2); border:1px solid var(--border); transition:background .15s; }
+.ofensor-item:hover { background:#1a2238; }
+.ofensor-rank { font-size:11px; font-weight:700; color:var(--muted); min-width:18px; font-family:'IBM Plex Mono',monospace; }
+.ofensor-name { font-size:13px; font-weight:600; color:var(--text); flex:1; }
+.ofensor-meta { font-size:10px; color:var(--muted); }
+.ofensor-vol { font-size:14px; font-weight:700; font-family:'IBM Plex Mono',monospace; color:var(--red); min-width:50px; text-align:right; }
+.ofensor-bar { height:3px; background:var(--border); border-radius:2px; margin-top:4px; overflow:hidden; }
+.ofensor-bar-fill { height:100%; background:var(--red); border-radius:2px; }
+.data-table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+thead tr { border-bottom:1px solid var(--border2); }
+thead th { padding:10px 14px; text-align:left; color:var(--muted); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; background:rgba(0,0,0,.2); white-space:nowrap; }
+tbody tr { border-bottom:1px solid rgba(30,43,66,.5); transition:background .12s; }
+tbody tr:hover { background:rgba(0,200,255,.03); }
+tbody tr.row-critical { background:rgba(255,58,92,.04); }
+td { padding:11px 14px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted2); white-space:nowrap; }
+td.td-name { font-family:'IBM Plex Sans',sans-serif; font-weight:600; color:var(--text); }
+td.td-vol { color:var(--accent); font-weight:700; }
+td.td-days-4 { color:var(--red); font-weight:700; }
+td.td-days-2 { color:var(--yellow); font-weight:600; }
+.pill { display:inline-block; padding:2px 9px; border-radius:20px; font-size:10px; font-weight:700; font-family:'IBM Plex Sans',sans-serif; }
+.pill-red { background:var(--red-dim); color:var(--red); border:1px solid rgba(255,58,92,.3); }
+.pill-yellow { background:var(--yellow-dim); color:var(--yellow); border:1px solid rgba(255,184,0,.3); }
+.pill-cyan { background:var(--accent-dim); color:var(--accent); }
+.bar-cell { display:flex; align-items:center; gap:8px; }
+.bar-bg { flex:1; height:5px; background:var(--border); border-radius:3px; overflow:hidden; min-width:60px; }
+.bar-fg { height:100%; border-radius:3px; }
+.timeline-legend { display:flex; gap:18px; flex-wrap:wrap; margin-bottom:12px; }
+.legend-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted2); }
+.legend-dot { width:8px; height:8px; border-radius:50%; }
+.spr-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; margin-top:14px; }
+.spr-card { background:var(--card2); border:1px solid var(--border); border-radius:9px; padding:14px 16px; }
+.spr-name { font-size:12px; font-weight:600; color:var(--text); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.spr-vol { font-size:22px; font-weight:700; font-family:'IBM Plex Mono',monospace; color:var(--accent); margin-bottom:4px; }
+.spr-pct { font-size:10px; color:var(--muted); }
+.spr-bar { height:3px; background:var(--border); border-radius:2px; margin-top:8px; overflow:hidden; }
+.spr-bar-fill { height:100%; border-radius:2px; }
+.seller-vol-row { margin-bottom:12px; }
+.seller-vol-top { display:flex;align-items:center;justify-content:space-between;margin-bottom:4px; }
+.seller-vol-name { font-size:12px;font-weight:700;color:var(--text); }
+.seller-vol-hub { font-size:10px;color:var(--muted);margin-left:5px; }
+.seller-vol-pct { font-size:11px;font-weight:700; }
+.bar-double { display:flex;flex-direction:column;gap:3px; }
+.bar-double-line { display:flex;align-items:center;gap:6px; }
+.bar-mini-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
+.bar-mini-bg { flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden; }
+.bar-mini-fill { height:100%;border-radius:3px; }
+.bar-mini-val { font-size:10px;font-family:'IBM Plex Mono',monospace;min-width:36px;text-align:right; }
+.alert-seller-card { background:var(--card2);border-radius:8px;border:1px solid var(--border);padding:10px 12px;display:flex;gap:10px;align-items:flex-start;transition:background .15s; }
+.alert-seller-card:hover { background:#1a2238; }
+.alert-seller-card.critical { border-color:rgba(255,58,92,.35);background:rgba(255,58,92,.04); }
+.alert-num-badge { width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px; }
+.alert-num-badge.warn { background:var(--orange); }
+.alert-seller-body { flex:1;min-width:0; }
+.alert-seller-name { font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:5px;flex-wrap:wrap; }
+.alert-hub-pill { font-size:9px;padding:1px 7px;border-radius:20px;background:var(--accent-dim);color:var(--accent);font-weight:700; }
+.alert-seller-meta { font-size:10px;color:var(--muted);margin-top:2px; }
+.alert-seller-meta span { color:var(--muted2); }
+.motivo-tag { display:inline-flex;align-items:center;gap:4px;font-size:9px;padding:2px 8px;border-radius:20px;border:1px solid rgba(255,184,0,.3);color:var(--yellow);background:var(--yellow-dim);margin-top:5px;font-weight:600; }
+.motivo-tag.critical { border-color:rgba(255,58,92,.35);color:var(--red);background:var(--red-dim); }
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+</style>
+</head>
 <body>
-<h1>Dashboard BPP - Teste</h1>
-<p>Se voce esta vendo isso, o deploy funcionou!</p>
+<div class="topbar">
+  <div class="topbar-left">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <svg width="72" height="36" viewBox="0 0 120 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="24" cy="24" rx="22" ry="22" fill="#FFE600" stroke="#1a1a2e" stroke-width="2"/>
+        <path d="M12 30 C15 21, 20 18, 24 26 C28 18, 33 21, 36 30" stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <circle cx="14" cy="19" r="3" fill="#1a1a2e"/>
+        <circle cx="34" cy="19" r="3" fill="#1a1a2e"/>
+        <text x="52" y="20" font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="800" fill="#1a1a2e">mercado</text>
+        <text x="52" y="35" font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="800" fill="#1a1a2e">livre</text>
+      </svg>
+      <div style="width:1px;height:30px;background:rgba(26,26,46,0.25)"></div>
+      <span class="bpp-badge">BPP</span>
+    </div>
+    <div class="topbar-title">
+      <h2>Performance de Coletas Seller</h2>
+      <p>Monitoramento Operacional · First Mile</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-pill"><div class="live-dot"></div>AO VIVO</div>
+    <span id="load-status" style="font-size:11px;color:#1a1a2e;font-family:'IBM Plex Mono',monospace;font-weight:600;">⟳ carregando...</span>
+    <button onclick="exportarPDF()" style="display:flex;align-items:center;gap:5px;padding:5px 12px;background:#1a1a2e;border:1px solid rgba(26,26,46,.3);color:#FFE600;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='#333';this.style.color='#FFE600'" onmouseout="this.style.background='#1a1a2e';this.style.color='#FFE600'">
+      ⬇ Exportar PDF
+    </button>
+    <span class="topbar-time" id="clock">--/--/---- --:--</span>
+  </div>
+</div>
+<div class="alert-banner" id="alert-banner">
+  <div class="alert-left">
+    <span class="alert-icon">🚨</span>
+    <span class="alert-text">
+      <strong>ALERTA CRÍTICO:</strong> Carregue o CSV para ver alertas atualizados
+    </span>
+  </div>
+  <span class="alert-badge">● CRÍTICO</span>
+</div>
+<div class="filters-bar">
+  <span class="filter-label">Filtros</span>
+  <select id="f-hub" onchange="applyFilters()"><option value="">📍 Todos os HUBs</option></select>
+  <select id="f-trans" onchange="applyFilters()"><option value="">🚚 Todas Transportadoras</option></select>
+  <select id="f-status" onchange="applyFilters()"><option value="">⏱ Todos os Status</option><option value="4">4 Dias sem Coleta</option><option value="2">2 Dias sem Coleta</option></select>
+  <select id="f-seller" onchange="applyFilters()" style="min-width:140px;"><option value="">👤 Todos os Sellers</option></select>
+  <div style="width:1px;height:20px;background:#002a6e;"></div>
+  <span style="font-size:10px;color:#6090c0;font-weight:500;">De</span>
+  <input type="date" id="f-date-from" onchange="applyFilters()" style="width:118px;color-scheme:dark;">
+  <span style="font-size:10px;color:#6090c0;font-weight:500;">Até</span>
+  <input type="date" id="f-date-to" onchange="applyFilters()" style="width:118px;color-scheme:dark;">
+  <div class="filter-sep"></div>
+  <button class="quick-btn active" id="qb-all" onclick="quickFilter('all',this)">Todos</button>
+  <button class="quick-btn" id="qb-crit" onclick="quickFilter('crit',this)">⚠ Críticos</button>
+  <button class="quick-btn" id="qb-vol" onclick="quickFilter('vol',this)">Volume Alto (&gt;200)</button>
+  <button class="filter-reset-btn" onclick="resetFilters()">↺ Limpar filtros</button>
+</div>
+<div class="section-header">KPIs Principais</div>
+<div class="kpi-row" id="kpi-row">
+  <div class="kpi-card kpi-red"><div class="kpi-top"><span class="kpi-icon">📦</span></div><div class="kpi-num" id="k-vol">0</div><div class="kpi-lbl">Volume Parado Total</div><span class="kpi-sub">▲ Backlog ativo</span><div class="kpi-bar"><div class="kpi-bar-fill" style="width:100%"></div></div></div>
+  <div class="kpi-card kpi-orange"><div class="kpi-top"><span class="kpi-icon">📋</span></div><div class="kpi-num" id="k-sellers">0</div><div class="kpi-lbl">Sellers em Backlog</div><span class="kpi-sub">100% ativos</span><div class="kpi-bar"><div class="kpi-bar-fill" style="width:100%"></div></div></div>
+  <div class="kpi-card kpi-yellow"><div class="kpi-top"><span class="kpi-icon">🚨</span></div><div class="kpi-num" id="k-crit">0</div><div class="kpi-lbl">Críticos (&gt;2 dias)</div><span class="kpi-sub" id="k-crit-sub">0%</span><div class="kpi-bar"><div class="kpi-bar-fill" id="k-crit-bar" style="width:0%"></div></div></div>
+  <div class="kpi-card kpi-purple"><div class="kpi-top"><span class="kpi-icon">🏭</span></div><div class="kpi-num" id="k-hubs">0</div><div class="kpi-lbl">Hubs Afetados</div><span class="kpi-sub" id="k-hub-leader">—</span><div class="kpi-bar"><div class="kpi-bar-fill" style="width:60%"></div></div></div>
+  <div class="kpi-card kpi-cyan"><div class="kpi-top"><span class="kpi-icon">🚛</span></div><div class="kpi-num" id="k-trans">0</div><div class="kpi-lbl">Transportadoras</div><span class="kpi-sub">—</span><div class="kpi-bar"><div class="kpi-bar-fill" style="width:38%"></div></div></div>
+  <div class="kpi-card kpi-green"><div class="kpi-top"><span class="kpi-icon">📊</span></div><div class="kpi-num" id="k-avg">0</div><div class="kpi-lbl">Média Vol. por Seller</div><span class="kpi-sub" id="k-max-sub">—</span><div class="kpi-bar"><div class="kpi-bar-fill" style="width:16%"></div></div></div>
+  <div class="kpi-card" style="background:linear-gradient(135deg,#001a10,#003020);"><div class="kpi-top"><span class="kpi-icon">⚡</span><span id="efic-trend" style="font-size:13px;">—</span></div><div class="kpi-num" id="k-efic" style="color:var(--green);">—</div><div class="kpi-lbl">Efic. Atual</div><span class="kpi-sub" id="k-efic-sub" style="background:var(--green-dim);color:var(--green);">col/est</span><div class="kpi-bar"><div class="kpi-bar-fill" id="k-efic-bar" style="width:0%;background:var(--green)"></div></div></div>
+  <div class="kpi-card" style="background:linear-gradient(135deg,#001020,#002040);"><div class="kpi-top"><span class="kpi-icon">📅</span><span id="vs-semana-icon" style="font-size:13px;">—</span></div><div class="kpi-num" id="k-vs-semana" style="color:var(--accent);">—</div><div class="kpi-lbl">Comparação Semanal</div><span class="kpi-sub" id="k-vs-sub" style="background:var(--accent-dim);color:var(--accent);">Carregue Histórico_Dados</span><div class="kpi-bar"><div class="kpi-bar-fill" id="k-vs-bar" style="width:0%;background:var(--accent)"></div></div></div>
+</div>
+<div class="tabs-nav">
+  <button class="tab-btn active" onclick="switchTab('top10',this)"><div class="tab-dot" style="background:var(--accent)"></div>Visão por Tipo</button>
+  <button class="tab-btn" onclick="switchTab('semcoleta',this)"><div class="tab-dot" style="background:var(--red)"></div>BPP</button>
+  <button class="tab-btn" onclick="switchTab('spr',this)"><div class="tab-dot" style="background:var(--orange)"></div>SPR Transportadoras</button>
+  <button class="tab-btn" onclick="switchTab('performance',this)" style="border-color:rgba(0,224,158,.3);color:var(--green);"><div class="tab-dot" style="background:var(--green)"></div>🏆 Performance</button>
+  <button class="tab-btn" onclick="switchTab('ofensores',this)"><div class="tab-dot" style="background:var(--red)"></div>⚡ Ofensores</button>
+  <button class="tab-btn" onclick="switchTab('timeline',this)"><div class="tab-dot" style="background:var(--green)"></div>📈 Linha do Tempo</button>
+</div>
+
+<div id="tab-top10" class="tab-panel active">
+  <div class="two-col">
+    <div class="chart-card"><div class="cc-header"><div><div class="cc-title">🏭 Top HUBs — Volume Pendente</div><div class="cc-sub">Ranking por volume acumulado</div></div><span class="cc-tag tag-cyan">VOL. COLETAS</span></div><div class="chart-wrap h280"><canvas id="cHubs"></canvas></div></div>
+    <div class="chart-card"><div class="cc-header"><div><div class="cc-title">🚚 Top Transportadoras — Volume</div><div class="cc-sub">Participação no backlog total</div></div><span class="cc-tag tag-orange">SPR / BACKLOG</span></div><div class="chart-wrap h280"><canvas id="cTrans"></canvas></div></div>
+  </div>
+  <div class="full-col"><div class="chart-card"><div class="cc-header"><div><div class="cc-title">👤 Top 10 Sellers — Volume Pendente</div><div class="cc-sub">Ordenado por maior volume parado</div></div><span class="cc-tag tag-purple">RANKING</span></div><div class="chart-wrap h320"><canvas id="cSellers"></canvas></div></div></div>
+  <div class="three-col">
+    <div class="chart-card"><div class="cc-header"><div class="cc-title">⏰ Horários com Mais Coletas</div><span class="cc-tag tag-cyan">PADRÃO</span></div><div class="cc-sub">Pico estimado por janela horária</div><div class="chart-wrap h240"><canvas id="cHours"></canvas></div></div>
+    <div class="chart-card"><div class="cc-header"><div class="cc-title">📅 Volume por Dia da Semana</div><span class="cc-tag tag-orange">PADRÃO</span></div><div class="cc-sub">Distribuição semanal estimada</div><div class="chart-wrap h240"><canvas id="cDays"></canvas></div></div>
+    <div class="chart-card"><div class="cc-header"><div class="cc-title">🚛 Tipo de Veículo</div><span class="cc-tag tag-purple">SHARE</span></div><div class="cc-sub">Participação por modal</div><div class="chart-wrap h240"><canvas id="cVehicle"></canvas></div></div>
+  </div>
+  <div class="two-col" style="margin-top:14px;">
+    <div class="chart-card"><div class="cc-header"><div><div class="cc-title">📦 Top Sellers — Estimado vs Coletado</div><div class="cc-sub">Volume parado ordenado pelo maior backlog</div></div><span class="cc-tag tag-cyan">BACKLOG</span></div><div style="display:flex;gap:14px;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2);"><div style="width:8px;height:8px;border-radius:50%;background:#3d8bff;"></div>Estimado</div><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2);"><div style="width:8px;height:8px;border-radius:50%;background:var(--green);"></div>Coletado</div></div><div id="sellers-vol-list"></div></div>
+    <div class="chart-card"><div class="cc-header"><div><div class="cc-title">🚨 Top Sellers sem Coleta</div><div class="cc-sub">Ordenado por volume parado · com motivo</div></div><span class="cc-tag tag-red" id="alertas-count">— alertas</span></div><div id="sellers-alert-list" style="display:flex;flex-direction:column;gap:6px;"></div></div>
+  </div>
+</div>
+
+<div id="tab-semcoleta" class="tab-panel">
+  <div class="chart-card" style="margin-top:16px"><div class="cc-header"><div><div class="cc-title">📋 Sellers sem Coleta — Detalhamento</div><div class="cc-sub">Ordenado pelo maior período sem coleta</div></div><span class="cc-tag tag-red" id="tbl-count">0 sellers</span></div><div class="data-table-wrap"><table><thead><tr><th>#</th><th>Seller</th><th>HUB</th><th>Transportadora</th><th>Rota</th><th>Dias sem Coleta</th><th>Vol. Parado</th><th>% do Total</th><th>Status</th></tr></thead><tbody id="tbody-sc"></tbody></table></div></div>
+</div>
+
+<div id="tab-spr" class="tab-panel">
+  <div class="two-col">
+    <div class="chart-card"><div class="cc-header"><div class="cc-title">📊 SPR — Volume por Transportadora</div><span class="cc-tag tag-cyan">VOLUME</span></div><div class="cc-sub">Volume por transportadora com % do total</div><div class="chart-wrap h320"><canvas id="cSPRBar"></canvas></div></div>
+    <div class="chart-card"><div class="cc-header"><div class="cc-title">🥧 Share SPR por Transportadora</div><span class="cc-tag tag-orange">PARTICIPAÇÃO %</span></div><div class="cc-sub">Distribuição percentual</div><div class="chart-wrap h320"><canvas id="cSPRPie"></canvas></div></div>
+  </div>
+  <div class="spr-grid" id="spr-cards"></div>
+  <div class="chart-card" style="margin-top:14px"><div class="cc-header"><div><div class="cc-title">🚚 Ranking SPR — Tabela</div></div><span class="cc-tag tag-green">RANKING</span></div><div class="data-table-wrap"><table><thead><tr><th>#</th><th>Transportadora</th><th>Vol. Pendente</th><th>Sellers</th><th>% do Total</th><th>Participação</th></tr></thead><tbody id="tbody-spr"></tbody></table></div></div>
+</div>
+
+<div id="tab-performance" class="tab-panel">
+  <div class="full-col"><div class="chart-card"><div class="cc-header"><div><div class="cc-title">🏆 Top 10 Sellers — Maior Volume Coletado</div><div class="cc-sub">Sellers com melhor performance de coleta</div></div><span class="cc-tag tag-green">POSITIVO</span></div><div class="chart-wrap h320"><canvas id="cTop10Pos"></canvas></div></div></div>
+  <div class="two-col" style="margin-top:14px;">
+    <div class="chart-card"><div class="cc-header"><div><div class="cc-title">⏰ Volume Coletado por Hora</div><div class="cc-sub">Pico de coletas por janela horária</div></div><span class="cc-tag tag-green">HORÁRIO</span></div><div class="chart-wrap h260"><canvas id="cHoraPos"></canvas></div></div>
+    <div class="chart-card"><div class="cc-header"><div><div class="cc-title">🚚 Transportadoras por Hora</div><div class="cc-sub">Volume coletado por transportadora em cada janela</div></div><span class="cc-tag tag-cyan">HORÁRIO</span></div><div class="chart-wrap h260"><canvas id="cTransHora"></canvas></div></div>
+  </div>
+</div>
+
+<div id="tab-ofensores" class="tab-panel">
+  <div class="two-col">
+    <div class="chart-card"><div class="cc-header"><div class="cc-title">🏆 Top 10 Ofensores — Menor Coleta</div><span class="cc-tag tag-red">IMPACTO</span></div><div class="cc-sub">Sellers com menor volume coletado</div><ul class="ofensor-list" id="ofensor-list"></ul></div>
+    <div class="chart-card"><div class="cc-header"><div class="cc-title">🔍 Motivos de Impacto</div><span class="cc-tag tag-red">ROOT CAUSE</span></div><div class="cc-sub">Distribuição por causa-raiz</div><div class="chart-wrap h280"><canvas id="cReasons"></canvas></div></div>
+  </div>
+</div>
+
+<div id="tab-timeline" class="tab-panel">
+  <div class="full-col"><div class="chart-card"><div class="cc-header"><div><div class="cc-title">⚡ Eficiência de Coleta — Evolução Semanal</div><div class="cc-sub">% coletado / estimado por semana</div></div><span class="cc-tag tag-green">EFICIÊNCIA REAL</span></div><div class="chart-wrap h280"><canvas id="cEficSemanal"></canvas></div></div></div>
+</div>
+
+<script>
+let RAW = [];
+let data = [];
+let quickMode = 'all';
+let charts = {};
+let chartInstances = {};
+let EFIC_HOJE = {est:0, col:0, efic:0};
+let EFIC_SEMANAL = [];
+const PALETTE = ['#00c8ff','#ff7b3a','#a259ff','#00e09e','#ffb800','#ff3a5c','#3d8bff','#ff6b9d','#00d4aa','#ffd93d'];
+const HOURS = {labels:['06h','07h','08h','09h','10h','11h','12h','13h','14h','15h','16h','17h','18h'],vals:[0,0,0,0,0,0,0,0,0,0,0,0,0]};
+const DAYS_W = {labels:['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'],vals:[0,0,0,0,0,0,0]};
+const VEHICLE = {labels:['VUC','Caminhão Médio','Van','Toco','HR / Utilitário','Truck','Carreta'],vals:[0,0,0,0,0,0,0]};
+const REASONS = {labels:['Sem tentativa','Janela perdida','Endereço inacessível','Seller fechado','Rota não coberta','Capacidade'],vals:[0,0,0,0,0,0]};
+
+const RAW_DATA_HOJE = [];
+const EFIC_HOJE_FIXO = {est:0,col:0,efic:0};
+const FALLBACK_DATA = [];
+
+const CHART_OPTS = {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f1320',borderColor:'#1e2b42',borderWidth:1,titleColor:'#dce6f5',bodyColor:'#8298b8',padding:10,cornerRadius:8}}};
+const GRID_OPT = {color:'rgba(30,43,66,.6)'};
+const TICK_OPT = {color:'#5a7099',font:{family:'IBM Plex Mono',size:10}};
+
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id];}}
+function agg(field){var m={};data.forEach(function(d){m[d[field]]=(m[d[field]]||0)+d.vol;});return Object.entries(m).sort(function(a,b){return b[1]-a[1];});}
+function labelPlugin(color,fontSize,offsetY){color=color||'#dce6f5';fontSize=fontSize||10;offsetY=offsetY||-7;return{afterDatasetsDraw:function(chart){var ctx=chart.ctx;ctx.save();chart.data.datasets.forEach(function(_,i){var meta=chart.getDatasetMeta(i);meta.data.forEach(function(el,j){var v=chart.data.datasets[i].data[j];if(v===undefined||v===null)return;ctx.fillStyle=color;ctx.font='600 '+fontSize+'px IBM Plex Mono';ctx.textAlign='center';var isH=chart.config.options.indexAxis==='y';if(isH){ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(v,el.x+6,el.y);}else{ctx.textBaseline='bottom';ctx.fillText(v,el.x,el.y+offsetY);}});});ctx.restore();}};}
+
+const doughnutLabelPlugin={id:'doughnutLabels',afterDatasetsDraw:function(chart){if(chart.config.type!=='doughnut')return;var ctx=chart.ctx;var total=chart.data.datasets[0].data.reduce(function(s,v){return s+v;},0);chart.data.datasets.forEach(function(ds,i){var meta=chart.getDatasetMeta(i);meta.data.forEach(function(arc,j){var val=ds.data[j];var pct=((val/total)*100).toFixed(1);if(parseFloat(pct)<4)return;var midAngle=arc.startAngle+(arc.endAngle-arc.startAngle)/2;var r=(arc.outerRadius+arc.innerRadius)/2;var x=arc.x+Math.cos(midAngle)*r;var y=arc.y+Math.sin(midAngle)*r;ctx.save();ctx.fillStyle='#fff';ctx.font='bold 10px IBM Plex Mono';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(pct+'%',x,y-5);ctx.font='9px IBM Plex Mono';ctx.fillStyle='rgba(255,255,255,.75)';ctx.fillText(val.toLocaleString('pt-BR'),x,y+6);ctx.restore();});});}};
+Chart.register(doughnutLabelPlugin);
+
+function buildHubs(){destroyChart('hubs');var d=agg('hub').slice(0,10);var ctx=document.getElementById('cHubs');if(!ctx)return;charts.hubs=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:d.map(function(x){return x[0];}),datasets:[{data:d.map(function(x){return x[1];}),backgroundColor:d.map(function(_,i){return PALETTE[i%PALETTE.length]+'30';}),borderColor:d.map(function(_,i){return PALETTE[i%PALETTE.length];}),borderWidth:1.5,borderRadius:5}]},options:{...CHART_OPTS,scales:{x:{ticks:TICK_OPT,grid:GRID_OPT},y:{ticks:TICK_OPT,grid:GRID_OPT}}},plugins:[labelPlugin()]});}
+function buildTrans(){destroyChart('trans');var d=agg('trans').slice(0,10);var ctx=document.getElementById('cTrans');if(!ctx)return;charts.trans=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:d.map(function(x){return x[0].length>18?x[0].substring(0,18)+'…':x[0];}),datasets:[{data:d.map(function(x){return x[1];}),backgroundColor:d.map(function(_,i){return PALETTE[i%PALETTE.length]+'30';}),borderColor:d.map(function(_,i){return PALETTE[i%PALETTE.length];}),borderWidth:1.5,borderRadius:5}]},options:{...CHART_OPTS,indexAxis:'y',scales:{x:{ticks:TICK_OPT,grid:GRID_OPT},y:{ticks:{...TICK_OPT,color:'#dce6f5'},grid:{display:false}}}},plugins:[labelPlugin('#dce6f5',10,0)]});}
+function buildSellers(){destroyChart('sellers');var d=[...data].sort(function(a,b){return b.vol-a.vol;}).slice(0,10);var total=data.reduce(function(s,x){return s+x.vol;},0);var ctx=document.getElementById('cSellers');if(!ctx)return;charts.sellers=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:d.map(function(x){return x.seller.length>22?x.seller.substring(0,22)+'…':x.seller;}),datasets:[{data:d.map(function(x){return x.vol;}),backgroundColor:'rgba(255,184,0,.2)',borderColor:'#ffb800',borderWidth:1.5,borderRadius:5}]},options:{...CHART_OPTS,indexAxis:'y',scales:{x:{ticks:TICK_OPT,grid:GRID_OPT},y:{ticks:{...TICK_OPT,color:'#dce6f5',font:{family:'IBM Plex Sans',size:11,weight:'600'}},grid:{display:false}}}},plugins:[labelPlugin('#dce6f5',10,0)]});}
+function buildHours(){destroyChart('hours');var ctx=document.getElementById('cHours');if(!ctx)return;charts.hours=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:HOURS.labels,datasets:[{data:HOURS.vals,backgroundColor:'rgba(0,200,255,.2)',borderColor:'#00c8ff',borderWidth:1.5,borderRadius:4}]},options:{...CHART_OPTS,scales:{x:{ticks:{...TICK_OPT,font:{size:9}},grid:GRID_OPT},y:{ticks:TICK_OPT,grid:GRID_OPT}}},plugins:[labelPlugin('#8298b8',9)]});}
+function buildDays(){destroyChart('days');var ctx=document.getElementById('cDays');if(!ctx)return;charts.days=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:DAYS_W.labels,datasets:[{data:DAYS_W.vals,backgroundColor:'rgba(255,123,58,.2)',borderColor:'#ff7b3a',borderWidth:1.5,borderRadius:4}]},options:{...CHART_OPTS,scales:{x:{ticks:TICK_OPT,grid:GRID_OPT},y:{ticks:TICK_OPT,grid:GRID_OPT}}},plugins:[labelPlugin('#8298b8',9)]});}
+function buildVehicle(){destroyChart('vehicle');var ctx=document.getElementById('cVehicle');if(!ctx)return;charts.vehicle=new Chart(ctx.getContext('2d'),{type:'doughnut',data:{labels:VEHICLE.labels,datasets:[{data:VEHICLE.vals,backgroundColor:['rgba(0,200,255,.45)','rgba(162,89,255,.45)','rgba(255,123,58,.45)','rgba(0,224,158,.45)','rgba(255,184,0,.45)'],borderColor:['#00c8ff','#a259ff','#ff7b3a','#00e09e','#ffb800'],borderWidth:1.5}]},options:{...CHART_OPTS,cutout:'60%',plugins:{...CHART_OPTS.plugins,legend:{display:true,position:'bottom',labels:{color:'#8298b8',font:{family:'IBM Plex Sans',size:10},boxWidth:10,padding:8}}}}});}
+function buildSPRBar(){destroyChart('sprbar');var d=agg('trans');var total=d.reduce(function(s,x){return s+x[1];},0);var ctx=document.getElementById('cSPRBar');if(!ctx)return;charts.sprbar=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:d.map(function(x){return x[0].length>16?x[0].substring(0,16)+'…':x[0];}),datasets:[{data:d.map(function(x){return x[1];}),backgroundColor:d.map(function(_,i){return PALETTE[i%PALETTE.length]+'30';}),borderColor:d.map(function(_,i){return PALETTE[i%PALETTE.length];}),borderWidth:1.5,borderRadius:5}]},options:{...CHART_OPTS,scales:{x:{ticks:{...TICK_OPT,maxRotation:12},grid:GRID_OPT},y:{ticks:TICK_OPT,grid:GRID_OPT}}},plugins:[labelPlugin()]});}
+function buildSPRPie(){destroyChart('sprpie');var d=agg('trans');var ctx=document.getElementById('cSPRPie');if(!ctx)return;charts.sprpie=new Chart(ctx.getContext('2d'),{type:'doughnut',data:{labels:d.map(function(x){return x[0].length>18?x[0].substring(0,18)+'…':x[0];}),datasets:[{data:d.map(function(x){return x[1];}),backgroundColor:d.map(function(_,i){return PALETTE[i%PALETTE.length]+'55';}),borderColor:d.map(function(_,i){return PALETTE[i%PALETTE.length];}),borderWidth:1.5}]},options:{...CHART_OPTS,cutout:'58%',plugins:{...CHART_OPTS.plugins,legend:{display:true,position:'right',labels:{color:'#8298b8',font:{family:'IBM Plex Sans',size:10},boxWidth:10,padding:6}}}}});}
+function buildSPRCards(){var d=agg('trans');var total=d.reduce(function(s,x){return s+x[1];},0);var c=document.getElementById('spr-cards');if(!c)return;c.innerHTML='';d.forEach(function(x,i){var pct=((x[1]/total)*100).toFixed(1);var color=PALETTE[i%PALETTE.length];c.innerHTML+='<div class="spr-card"><div class="spr-name" title="'+x[0]+'">'+x[0]+'</div><div class="spr-vol" style="color:'+color+'">'+x[1].toLocaleString('pt-BR')+'</div><div class="spr-pct">'+pct+'% do total</div><div class="spr-bar"><div class="spr-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div></div>';});}
+function buildSPRTable(){var d=agg('trans');var total=d.reduce(function(s,x){return s+x[1];},0);var sellers={};data.forEach(function(x){sellers[x.trans]=(sellers[x.trans]||0)+1;});var tbody=document.getElementById('tbody-spr');if(!tbody)return;tbody.innerHTML='';d.forEach(function(x,i){var pct=((x[1]/total)*100).toFixed(1);var color=PALETTE[i%PALETTE.length];tbody.innerHTML+='<tr><td>'+(i+1)+'</td><td class="td-name">'+x[0]+'</td><td class="td-vol">'+x[1].toLocaleString('pt-BR')+'</td><td style="color:var(--yellow)">'+(sellers[x[0]]||0)+'</td><td>'+pct+'%</td><td><div class="bar-cell"><div class="bar-bg"><div class="bar-fg" style="width:'+pct+'%;background:'+color+'"></div></div><span style="font-size:10px;color:'+color+'">'+pct+'%</span></div></td></tr>';});}
+function buildReasons(){destroyChart('reasons');var ctx=document.getElementById('cReasons');if(!ctx)return;var motivos={};data.forEach(function(d){if(d.motivo){motivos[d.motivo]=(motivos[d.motivo]||0)+1;}});var sorted=Object.entries(motivos).sort(function(a,b){return b[1]-a[1];}).slice(0,6);charts.reasons=new Chart(ctx.getContext('2d'),{type:'doughnut',data:{labels:sorted.map(function(x){return x[0].length>25?x[0].substring(0,25)+'…':x[0];}),datasets:[{data:sorted.map(function(x){return x[1];}),backgroundColor:['rgba(0,200,255,.45)','rgba(255,184,0,.45)','rgba(0,224,158,.45)','rgba(255,123,58,.45)','rgba(255,58,92,.45)','rgba(162,89,255,.45)'],borderColor:['#00c8ff','#ffb800','#00e09e','#ff7b3a','#ff3a5c','#a259ff'],borderWidth:1.5}]},options:{...CHART_OPTS,cutout:'55%',plugins:{...CHART_OPTS.plugins,legend:{display:true,position:'right',labels:{color:'#8298b8',font:{family:'IBM Plex Sans',size:10},boxWidth:10,padding:6}}}}});}
+function buildOfensorList(){var sorted=[...data].sort(function(a,b){return a.vol-b.vol;}).slice(0,10);var ul=document.getElementById('ofensor-list');if(!ul)return;ul.innerHTML='';sorted.forEach(function(d,i){var motivo=d.motivo||'—';ul.innerHTML+='<li class="ofensor-item"><span class="ofensor-rank">'+(i+1)+'</span><div style="flex:1;min-width:0"><div class="ofensor-name">'+d.seller+'</div><div class="ofensor-meta">'+d.hub+' · '+d.trans+'</div><div style="margin-top:4px;font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid rgba(255,184,0,.3);color:var(--yellow);background:var(--yellow-dim);display:inline-block;">⚠ '+motivo+'</div></div><span class="ofensor-vol" style="color:var(--orange)">'+d.vol+'</span></li>';});}
+function buildTop10Pos(){destroyChart('top10pos');var ctx=document.getElementById('cTop10Pos');if(!ctx)return;var sorted=[...data].sort(function(a,b){return b.vol-a.vol;}).slice(0,10);chartInstances['top10pos']=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:sorted.map(function(d){return d.seller.length>20?d.seller.substring(0,20)+'…':d.seller;}),datasets:[{label:'Vol.',data:sorted.map(function(d){return d.vol;}),backgroundColor:'rgba(0,224,158,.25)',borderColor:'#00e09e',borderWidth:1.5,borderRadius:5}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:TICK_OPT,grid:GRID_OPT},y:{ticks:{...TICK_OPT,color:'#dce6f5',font:{family:'IBM Plex Sans',size:11,weight:'600'}},grid:{display:false}}}}});}
+function buildHoraPos(){destroyChart('horapos');var ctx=document.getElementById('cHoraPos');if(!ctx)return;chartInstances['horapos']=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:HOURS.labels,datasets:[{data:HOURS.vals,backgroundColor:'rgba(0,224,158,.25)',borderColor:'#00e09e',borderWidth:1.5,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{...TICK_OPT,font:{size:9}},grid:GRID_OPT},y:{ticks:TICK_OPT,grid:GRID_OPT}}}});}
+function buildTransHora(){destroyChart('transhora');var ctx=document.getElementById('cTransHora');if(!ctx)return;chartInstances['transhora']=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:['08h','10h','12h','14h','16h'],datasets:[]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8298b8'},position:'bottom'}},scales:{x:{stacked:true,ticks:TICK_OPT,grid:GRID_OPT},y:{stacked:true,ticks:TICK_OPT,grid:GRID_OPT}}}});}
+function buildEficSemanal(){destroyChart('eficsemanal');var ctx=document.getElementById('cEficSemanal');if(!ctx||!EFIC_SEMANAL.length)return;chartInstances['eficsemanal']=new Chart(ctx.getContext('2d'),{type:'line',data:{labels:EFIC_SEMANAL.map(function(s){return s.sem;}),datasets:[{label:'Eficiência (%)',data:EFIC_SEMANAL.map(function(s){return s.efic;}),borderColor:'#00e09e',backgroundColor:'rgba(0,224,158,.1)',pointRadius:6,borderWidth:2.5,fill:true,tension:.35}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8298b8',font:{family:'IBM Plex Mono',size:10}},grid:{color:'rgba(30,43,66,.4)'}},y:{min:0,max:100,ticks:{color:'#8298b8',callback:function(v){return v+'%';}},grid:{color:'rgba(30,43,66,.4)'}}}}});}
+
+function buildSellersVolList(){var sorted=[...data].sort(function(a,b){return b.vol-a.vol;}).slice(0,8);var maxVol=sorted[0]?sorted[0].vol:1;var c=document.getElementById('sellers-vol-list');if(!c)return;c.innerHTML='';sorted.forEach(function(d){var bw=Math.max(2,(d.vol/maxVol)*100).toFixed(0)+'%';c.innerHTML+='<div class="seller-vol-row"><div class="seller-vol-top"><div><span class="seller-vol-name">'+(d.seller.length>18?d.seller.substring(0,18)+'…':d.seller)+'</span><span class="seller-vol-hub">'+d.hub+'</span></div><span class="seller-vol-pct" style="color:#ff3a5c">0%</span></div><div class="bar-double"><div class="bar-double-line"><div class="bar-mini-dot" style="background:#3d8bff"></div><div class="bar-mini-bg"><div class="bar-mini-fill" style="width:'+bw+';background:#3d8bff"></div></div><div class="bar-mini-val" style="color:#3d8bff">'+d.vol+'</div></div><div class="bar-double-line"><div class="bar-mini-dot" style="background:var(--green)"></div><div class="bar-mini-bg"><div class="bar-mini-fill" style="width:0%;background:var(--green)"></div></div><div class="bar-mini-val" style="color:var(--muted)">0</div></div></div></div>';});}
+
+function buildSellersAlertList(){var sorted=[...data].sort(function(a,b){return b.days-a.days||b.vol-a.vol;}).slice(0,10);var c=document.getElementById('sellers-alert-list');var ct=document.getElementById('alertas-count');if(!c)return;c.innerHTML='';if(ct)ct.textContent=sorted.length+' alertas';sorted.forEach(function(d,i){var motivo=d.motivo||'Sem informação';c.innerHTML+='<div class="alert-seller-card"><div class="alert-num-badge warn">'+(i+1)+'</div><div class="alert-seller-body"><div class="alert-seller-name">'+(d.seller.length>20?d.seller.substring(0,20)+'…':d.seller)+' <span class="alert-hub-pill">'+d.hub+'</span></div><div class="alert-seller-meta"><span>'+d.vol.toLocaleString('pt-BR')+' vol</span> · '+(d.trans.length>18?d.trans.substring(0,18)+'…':d.trans)+' · '+d.days+' dias</div><div class="motivo-tag">⚠ '+motivo+'</div></div></div>';});}
+
+function buildDestaqueCards(){}
+function buildSCTable(){var sorted=[...data].sort(function(a,b){return b.days-a.days||b.vol-a.vol;});var total=data.reduce(function(s,x){return s+x.vol;},0);var el=document.getElementById('tbl-count');if(el)el.textContent=sorted.length+' sellers';var tbody=document.getElementById('tbody-sc');if(!tbody)return;tbody.innerHTML='';sorted.forEach(function(d,i){var pct=total>0?((d.vol/total)*100).toFixed(1):'0';tbody.innerHTML+='<tr><td>'+(i+1)+'</td><td class="td-name">'+d.seller+'</td><td style="color:var(--accent);font-size:11px">'+d.hub+'</td><td style="font-size:11px">'+d.trans+'</td><td>'+d.rota+'</td><td class="td-days-2">'+d.days+' dias</td><td class="td-vol">'+d.vol.toLocaleString('pt-BR')+'</td><td>'+pct+'%</td><td><span class="pill pill-yellow">'+d.days+' DIAS</span></td></tr>';});}
+
+function updateKPIs(){var total=data.reduce(function(s,x){return s+x.vol;},0);var hubs=new Set(data.map(function(x){return x.hub;})).size;var trans=new Set(data.map(function(x){return x.trans;})).size;var crit=data.filter(function(x){return x.days>=4;}).length;var maxS=[...data].sort(function(a,b){return b.vol-a.vol;})[0];var topHub=agg('hub')[0];var avg=data.length>0?Math.round(total/data.length):0;document.getElementById('k-vol').textContent=total.toLocaleString('pt-BR');document.getElementById('k-sellers').textContent=data.length;document.getElementById('k-crit').textContent=crit;document.getElementById('k-crit-sub').textContent=data.length>0?((crit/data.length*100).toFixed(0))+'% do total':'0%';document.getElementById('k-crit-bar').style.width=data.length>0?((crit/data.length)*100)+'%':'0%';document.getElementById('k-hubs').textContent=hubs;document.getElementById('k-hub-leader').textContent=topHub?topHub[0]+' lidera':'—';document.getElementById('k-trans').textContent=trans;document.getElementById('k-avg').textContent=avg.toLocaleString('pt-BR');document.getElementById('k-max-sub').textContent=maxS?'Máx: '+maxS.vol.toLocaleString('pt-BR'):'—';var eficEl=document.getElementById('k-efic');var eficBar=document.getElementById('k-efic-bar');var eficSub=document.getElementById('k-efic-sub');var eficTrend=document.getElementById('efic-trend');var eficPct=EFIC_HOJE.efic||0;var eficColor=eficPct>=80?'var(--green)':eficPct>=50?'var(--yellow)':'var(--red)';if(eficEl){eficEl.textContent=eficPct+'%';eficEl.style.color=eficColor;}if(eficBar){eficBar.style.width=Math.min(100,eficPct)+'%';eficBar.style.background=eficColor;}if(eficSub){eficSub.textContent=(EFIC_HOJE.col||0).toLocaleString('pt-BR')+' / '+(EFIC_HOJE.est||0).toLocaleString('pt-BR');}if(eficTrend){eficTrend.textContent=eficPct>=80?'✅':eficPct>=50?'⚠️':'🔴';}}
+
+function populateFilters(){var hubs=[...new Set(RAW.map(function(d){return d.hub;}))].sort();var trans=[...new Set(RAW.map(function(d){return d.trans;}))].sort();var sellers=[...new Set(RAW.map(function(d){return d.seller;}))].sort();var fh=document.getElementById('f-hub'),ft=document.getElementById('f-trans'),fs=document.getElementById('f-seller');hubs.forEach(function(h){fh.appendChild(new Option('📍 '+h,h));});trans.forEach(function(t){ft.appendChild(new Option('🚚 '+(t.length>24?t.substring(0,24)+'…':t),t));});sellers.forEach(function(s){fs.appendChild(new Option('👤 '+(s.length>22?s.substring(0,22)+'…':s),s));});}
+function applyFilters(){var hub=document.getElementById('f-hub').value;var trans=document.getElementById('f-trans').value;var status=document.getElementById('f-status').value;var seller=document.getElementById('f-seller')?document.getElementById('f-seller').value:'';data=RAW.filter(function(d){if(hub&&d.hub!==hub)return false;if(trans&&d.trans!==trans)return false;if(status==='4'&&d.days<4)return false;if(status==='2'&&d.days!==2)return false;if(seller&&d.seller!==seller)return false;if(quickMode==='crit'&&d.days<4)return false;if(quickMode==='vol'&&d.vol<=200)return false;return true;});renderAll();}
+function quickFilter(mode,el){quickMode=mode;document.querySelectorAll('.quick-btn').forEach(function(b){b.classList.remove('active');});el.classList.add('active');applyFilters();}
+function resetFilters(){document.getElementById('f-hub').value='';document.getElementById('f-trans').value='';document.getElementById('f-status').value='';var fs=document.getElementById('f-seller');if(fs)fs.value='';quickMode='all';document.querySelectorAll('.quick-btn').forEach(function(b){b.classList.remove('active');});document.getElementById('qb-all').classList.add('active');data=[...RAW];renderAll();}
+
+function switchTab(name,el){document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});document.getElementById('tab-'+name).classList.add('active');el.classList.add('active');setTimeout(function(){renderTab(name);},30);}
+function renderTab(name){if(name==='top10'){buildHubs();buildTrans();buildSellers();buildHours();buildDays();buildVehicle();buildSellersVolList();buildSellersAlertList();}else if(name==='performance'){buildTop10Pos();buildHoraPos();buildTransHora();}else if(name==='semcoleta'){buildSCTable();}else if(name==='spr'){buildSPRBar();buildSPRPie();buildSPRCards();buildSPRTable();}else if(name==='ofensores'){buildReasons();buildOfensorList();}else if(name==='timeline'){buildEficSemanal();}}
+function renderAll(){updateKPIs();var active=document.querySelector('.tab-panel.active');if(active){renderTab(active.id.replace('tab-',''));}buildSCTable();}
+
+function initDashboard(){data=[...RAW];populateFilters();renderAll();}
+function loadData(){initDashboard();}
+function updateClock(){var now=new Date();var pad=function(n){return String(n).padStart(2,'0');};document.getElementById('clock').textContent=pad(now.getDate())+'/'+pad(now.getMonth()+1)+'/'+now.getFullYear()+' '+pad(now.getHours())+':'+pad(now.getMinutes());}
+setInterval(updateClock,30000);
+window.addEventListener('load',function(){updateClock();loadData();});
+function exportarPDF(){alert('Carregue o CSV primeiro para exportar.');}
+</script>
+<script src="csv-upload.js"></script>
 </body>
 </html>
