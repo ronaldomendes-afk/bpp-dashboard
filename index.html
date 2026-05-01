@@ -664,8 +664,42 @@ function exportPDF(){
   doc.save('BPP_D0_'+now.toLocaleDateString('pt-BR').replace(/\//g,'-')+'.pdf');
 }
 
+// ===== AUTO FETCH BASE_XD FROM SHEETS =====
+var SHEETS_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vTysVByZLzVV_j36-lSEcl8ZQZQ4rcGbb02PT0mFlVqMrO3kJZiNdDBsmPjF7K0VMmfyW1sUkpewDAY/pub?gid=1773165991&single=true&output=csv';
+function fetchXD(){
+  var cb=document.getElementById('cb');
+  cb.textContent='⏳ Carregando...';cb.disabled=true;
+  document.getElementById('ls').textContent='Buscando dados...';
+  document.getElementById('ls').style.color='var(--yellow)';
+  // Use a CORS proxy to fetch the Google Sheets CSV
+  var proxyUrl='https://corsproxy.io/?'+encodeURIComponent(SHEETS_URL);
+  fetch(proxyUrl)
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+    .then(function(text){
+      var res=pXD(text);
+      if(res.error)throw new Error(res.error);
+      if(!res.raw||!res.raw.length)throw new Error('Sem dados na planilha');
+      R=res.raw;D=R.slice();E=res.efic;PA=res;
+      rFilt();rAll();
+      cb.classList.add('ld');cb.disabled=false;
+      cb.textContent='🔄 Atualizar';
+      cb.onclick=fetchXD;
+      document.getElementById('ls').textContent='✓ '+res.n.toLocaleString('pt-BR')+' linhas · auto';
+      document.getElementById('ls').style.color='#00e09e';
+      sToast('ok','✅ Dados carregados!',res.raw.length+' sellers · '+res.raw.reduce(function(s,x){return s+x.vol;},0).toLocaleString('pt-BR')+' vol pendente');
+    })
+    .catch(function(err){
+      console.error(err);
+      cb.disabled=false;cb.textContent='📂 Base_XD (manual)';
+      cb.onclick=function(){document.getElementById('fi').click();};
+      document.getElementById('ls').textContent='Carregue o CSV →';
+      document.getElementById('ls').style.color='var(--dk)';
+      sToast('err','⚠ Auto-fetch falhou','Use o botão para carregar manualmente');
+    });
+}
+
 setInterval(uC,30000);
-window.addEventListener('load',function(){uC();});
+window.addEventListener('load',function(){uC();fetchXD();});
 </script>
 </body>
 </html>
