@@ -214,6 +214,28 @@ function pXD(t){
   if(iH===undefined)iH=14;
   if(iM===undefined)iM=22;
   if(h.length<5)return{error:'CSV inválido: '+h.length+' colunas detectadas'};
+  var sa={},ha={},va={},ma={},tE=0,tC=0,n=0;
+  for(var i=1;i<ls.length;i++){
+    var c=pl(ls[i],d);
+    if(!c||c.length<5)continue;
+    if(iTP!==undefined&&(c[iTP]||'').trim()!=='Vendedor')continue;
+    var s=(c[iP]||'').trim();if(!s)continue;
+    var e=parseInt(c[iE])||0,co=iC!==undefined?(parseInt(c[iC])||0):0;
+    var hub=iD!==undefined?(c[iD]||'').trim():'',tr=iT!==undefined?(c[iT]||'').trim():'';
+    var v=iV!==undefined?(c[iV]||'').trim():'',hr=iH!==undefined?(c[iH]||'').trim():'',m=iM!==undefined?(c[iM]||'').trim():'';
+    tE+=e;tC+=co;n++;
+    if(!sa[s])sa[s]={seller:s,hub:hub,trans:tr,est:0,col:0,motivo:m,veiculo:v};
+    sa[s].est+=e;sa[s].col+=co;
+    if(m&&m!=='Coleta Parcial')sa[s].motivo=m;
+    if(hr){var hm=hr.match(/^(\d{1,2})/);if(hm){var hk=('0'+hm[1]).slice(-2)+'h';if(!ha[hk])ha[hk]={est:0,col:0};ha[hk].est+=e;ha[hk].col+=co;}}
+    if(v){if(!va[v])va[v]={est:0,col:0};va[v].est+=e;va[v].col+=co;}
+    if(m)ma[m]=(ma[m]||0)+1;
+  }
+  var rw=[];
+  Object.values(sa).forEach(function(d){var p=d.est-d.col;if(p>0)rw.push({seller:d.seller,hub:d.hub,trans:d.trans,vol:p,est:d.est,col:d.col,motivo:d.motivo,veiculo:d.veiculo});});
+  return{raw:rw,efic:{est:tE,col:tC},ha:ha,va:va,ma:ma,n:n};
+}
+
 // ===== PARSE HISTÓRICO ===== v77
 function pHist(t){
   t=t.replace(/^\uFEFF/,'');
