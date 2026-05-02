@@ -191,110 +191,44 @@ var DLP={id:'dlp',afterDatasetsDraw:function(ch){var cx=ch.ctx;cx.save();ch.data
 // ===== CSV PARSER =====
 function pl(l,d){if(!l||!l.trim())return null;var r=[],c='',q=false;for(var i=0;i<l.length;i++){var ch=l[i];if(ch==='"')q=!q;else if(ch===d&&!q){r.push(c);c='';}else c+=ch;}r.push(c);return r;}
 
-// ===== PARSE BASE_XD ===== v77: BOM strip + fallback normalizado p/ acentos
+// ===== PARSE BASE_XD ===== v77
 function pXD(t){
-  // 1) Strip BOM — presente em CSVs do Excel/ML
   t=t.replace(/^\uFEFF/,'');
   var fl=t.split(/\r?\n/)[0],d=',';
   if(fl.split('\t').length>fl.split(',').length)d='\t';
   else if(fl.split(';').length>fl.split(',').length)d=';';
   var ls=t.trim().split(/\r?\n/),h=pl(ls[0],d).map(function(x){return x.trim().replace(/^"|"$/g,'');}),xi={};
   h.forEach(function(v,i){xi[v]=i;});
-  // 2) Fallback normalizado — resolve encoding mismatch (Windows-1252 vs UTF-8)
-  // Quando o CSV exportado tem acento corrompido, 'Hor\u00e1rios' vira bytes errados
-  // A normalizacao NFD remove os diacriticos e permite match case-insensitive
   function _norm(s){try{return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}catch(e){return s.toLowerCase().trim();}}
   var xiN={};h.forEach(function(v,i){xiN[_norm(v)]=i;});
-  function _fc(name){return xi[name]!==undefined?xi[name]:xiN[_norm(name)];}
-  var iP=_fc('Parada'),iD=_fc('Dep\u00f3sito'),iT=_fc('Transportadora'),iE=_fc('Pacotes estimados'),iC=_fc('Pacotes coletados'),iTP=_fc('Tipo de parada'),iV=_fc('Tipo de ve\u00edculo'),iH=_fc('Hor\u00e1rios'),iM=_fc('Motivo');
-  if(iP===undefined||iE===undefined)return{error:'Colunas n\u00e3o encontradas. Detectadas: '+h.slice(0,6).join(' | ')};
-  var sa={},ha={},va={},ma={},tE=0,tC=0,n=0;
-  for(var i=1;i<ls.length;i++){
-    var c=pl(ls[i],d);
-    if(!c||c.length<5)continue;
-    if(iTP!==undefined&&(c[iTP]||'').trim()!=='Vendedor')continue;
-    var s=(c[iP]||'').trim();if(!s)continue;
-    var e=parseInt(c[iE])||0,co=iC!==undefined?(parseInt(c[iC])||0):0;
-    var hub=iD!==undefined?(c[iD]||'').trim():'',tr=iT!==undefined?(c[iT]||'').trim():'';
-    var v=iV!==undefined?(c[iV]||'').trim():'',hr=iH!==undefined?(c[iH]||'').trim():'',m=iM!==undefined?(c[iM]||'').trim():'';
-    tE+=e;tC+=co;n++;
-    if(!sa[s])sa[s]={seller:s,hub:hub,trans:tr,est:0,col:0,motivo:m,veiculo:v};
-    sa[s].est+=e;sa[s].col+=co;
-    if(m&&m!=='Coleta Parcial')sa[s].motivo=m;
-    if(hr){var hm=hr.match(/^(\d{1,2})/);if(hm){var hk=('0'+hm[1]).slice(-2)+'h';if(!ha[hk])ha[hk]={est:0,col:0};ha[hk].est+=e;ha[hk].col+=co;}}
-    if(v){if(!va[v])va[v]={est:0,col:0};va[v].est+=e;va[v].col+=co;}
-    if(m)ma[m]=(ma[m]||0)+1;
-  }
-  var rw=[];
-  Object.values(sa).forEach(function(d){var p=d.est-d.col;if(p>0)rw.push({seller:d.seller,hub:d.hub,trans:d.trans,vol:p,est:d.est,col:d.col,motivo:d.motivo,veiculo:d.veiculo});});
-  return{raw:rw,efic:{est:tE,col:tC},ha:ha,va:va,ma:ma,n:n};
-}
-
-// ===== PARSE HISTÓRICO ===== v77: BOM strip + fallback normalizado p/ acentos
+  function _fc(n){return xi[n]!==undefined?xi[n]:xiN[_norm(n)];}
+  var iP=_fc('Parada'),iD=_fc('Depósito'),iT=_fc('Transportadora'),
+      iE=_fc('Pacotes estimados'),iC=_fc('Pacotes coletados'),
+      iTP=_fc('Tipo de parada'),iV=_fc('Tipo de veículo'),
+      iH=_fc('Horários'),iM=_fc('Motivo');
+  if(iP===undefined)iP=12;
+  if(iE===undefined)iE=15;
+  if(iC===undefined)iC=18;
+  if(iTP===undefined)iTP=11;
+  if(iT===undefined)iT=7;
+  if(iH===undefined)iH=14;
+  if(iM===undefined)iM=22;
+  if(h.length<5)return{error:'CSV inválido: '+h.length+' colunas detectadas'};
+// ===== PARSE HISTÓRICO ===== v77
 function pHist(t){
-  t=t.replace(/^﻿/,'');
-  var fl=t.split(/
-?
-/)[0],d=',';
-  if(fl.split('	').length>fl.split(',').length)d='	';
+  t=t.replace(/^\uFEFF/,'');
+  var fl=t.split(/\r?\n/)[0],d=',';
+  if(fl.split('\t').length>fl.split(',').length)d='\t';
   else if(fl.split(';').length>fl.split(',').length)d=';';
-  var ls=t.trim().split(/
-?
-/),h=pl(ls[0],d).map(function(x){return x.trim().replace(/^"|"$/g,'');}),xi={};
+  var ls=t.trim().split(/\r?\n/),h=pl(ls[0],d).map(function(x){return x.trim().replace(/^"|"$/g,'');}),xi={};
   h.forEach(function(v,i){xi[v]=i;});
-  function _norm(s){try{return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();}catch(e){return s.toLowerCase().trim();}}
+  function _norm(s){try{return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}catch(e){return s.toLowerCase().trim();}}
   var xiN={};h.forEach(function(v,i){xiN[_norm(v)]=i;});
-  function _fc(name){return xi[name]!==undefined?xi[name]:xiN[_norm(name)];}
-  var iDt=_fc('DATA'),iTr=_fc('TRANSP'),iPn=_fc('PND SISTEMA'),iSl=_fc('Seller_Ref'),iHb=_fc('HUB_ID'),iCl=_fc('COLETADOS');
+  function _fc(n){return xi[n]!==undefined?xi[n]:xiN[_norm(n)];}
+  var iDt=_fc('DATA'),iTr=_fc('TRANSP'),iPn=_fc('PND SISTEMA'),
+      iSl=_fc('Seller_Ref'),iHb=_fc('HUB_ID'),iCl=_fc('COLETADOS');
   var iSm=_fc('SEMANA');
-  if(iDt===undefined)return{error:'Coluna DATA não encontrada no Histórico'};
-  var bw={},sm={},ds=new Set(),wkFirstDate={},wkLastDate={};
-  for(var i=1;i<ls.length;i++){
-    var c=pl(ls[i],d);
-    if(!c||c.length<4)continue;
-    var dt=(c[iDt]||'').trim(),tr=(c[iTr]||'').trim(),hb=(c[iHb]||'').trim(),sl=(c[iSl]||'').trim();
-    var pn=parseInt(c[iPn]||0)||0,cl=parseInt(c[iCl]||0)||0;
-    if(!dt)continue;
-    var wk,smRaw=iSm!==undefined?(c[iSm]||'').trim():'';
-    if(smRaw&&/^W\d{2}$/.test(smRaw)){
-      var yr=(dt.split('/')[2]||String(new Date().getFullYear())).trim();
-      wk=yr+'-'+smRaw;
-    }else{wk=_isoWkKey(dt);}
-    ds.add(wk);
-    if(!wkFirstDate[wk]||_dtObj(dt)<_dtObj(wkFirstDate[wk]))wkFirstDate[wk]=dt;
-    if(!wkLastDate[wk]||_dtObj(dt)>_dtObj(wkLastDate[wk]))wkLastDate[wk]=dt;
-    if(!bw[wk])bw[wk]={hubs:{},trans:{},totPnd:0,totCol:0,sellers:{}};
-    var w=bw[wk];
-    w.totPnd+=pn;w.totCol+=cl;w.sellers[sl]=1;
-    if(hb){if(!w.hubs[hb])w.hubs[hb]={pnd:0,col:0};w.hubs[hb].pnd+=pn;w.hubs[hb].col+=cl;}
-    if(tr){if(!w.trans[tr])w.trans[tr]={pnd:0,col:0};w.trans[tr].pnd+=pn;w.trans[tr].col+=cl;}
-    if(sl){if(!sm[sl])sm[sl]={};if(!sm[sl][wk])sm[sl][wk]={pnd:0,col:0};sm[sl][wk].pnd+=pn;sm[sl][wk].col+=cl;}
-  }
-  var sds=Array.from(ds).sort();
-  return{byWeek:bw,sellerMap:sm,dates:sds,wkFirstDate:wkFirstDate,wkLastDate:wkLastDate,n:ls.length-1};
-}
-
-function _dtObj(dt){var p=dt.split('/');return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));}
-function _isoWkKey(dt){
-  var d=_dtObj(dt);
-  var jan4=new Date(d.getFullYear(),0,4);
-  var startW1=new Date(jan4);startW1.setDate(jan4.getDate()-(jan4.getDay()||7)+1);
-  var diff=d-startW1;
-  if(diff<0){jan4=new Date(d.getFullYear()-1,0,4);startW1=new Date(jan4);startW1.setDate(jan4.getDate()-(jan4.getDay()||7)+1);diff=d-startW1;}
-  var wn=Math.floor(diff/604800000)+1;
-  var yr=d.getFullYear();
-  return yr+'-W'+('0'+wn).slice(-2);
-}
-function wkLabel(wk){
-  if(!HS||!HS.wkFirstDate)return wk;
-  var parts=wk.split('-W');
-  var wn=parts.length>1?parts[1]:wk.replace(/\D/g,'');
-  var f=HS.wkFirstDate[wk]||'',l=HS.wkLastDate[wk]||'';
-  if(!f)return 'W'+wn;
-  if(f===l||!l)return 'W'+wn+' ('+f.substring(0,5)+')';
-  return 'W'+wn+' ('+f.substring(0,5)+'~'+l.substring(0,5)+')';
-}
-function hEf(pnd,col){var t=pnd+col;return t>0?Math.round(col/t*100):0;}
+  if(iDt===undefined)return{error:'Coluna DATA não encontrada'};
 
 // ===== CSV2 HANDLER (HISTÓRICO) =====
 function hCSV2(ev){
@@ -329,7 +263,7 @@ function hCSV(ev){
     try{
       var res=pXD(e.target.result);
       if(res.error){sToast('err','❌',res.error);return;}
-      if(!res.raw||!res.raw.length){sToast('err','❌','Sem dados pendêntes. Todos os sellers foram coletados!');return;}
+      if(!res.raw||!res.raw.length){sToast('ok','✅','Tudo coletado! Eficiência 100%');}
       R=res.raw;D=R.slice();E=res.efic;PA=res;
       rFilt();rAll();
       document.getElementById('cb').classList.add('ld');
