@@ -733,11 +733,12 @@ function sT(n,el){document.querySelectorAll('.tp').forEach(function(p){p.classLi
 var rendered={};
 function rT(n){
   if(n==='d0'&&!rendered.d0){bH();bHEC();bT();bTEC();bO();bP();bVE();bMEC();bEV();bAL();bHR();bMO();bRV();rendered.d0=true;}
+  else if(n==='d0'){bRV();}
   else if(n==='bpp'){bBPP();bDSC();}
   else if(n==='spr'){bSB();bSP();bSC();bST();}
   else if(n==='comp'){bComp();}
 }
-function rAll(){uK();rendered={};var a=document.querySelector('.tp.a');if(a)rT(a.id.replace('tab-',''));}
+function rAll(){uK();rendered={};var a=document.querySelector('.tp.a');if(a)rT(a.id.replace('tab-',''));bRV();}
 
 // ===== CLOCK =====
 function uC(){var n=new Date(),p=function(v){return String(v).padStart(2,'0');};document.getElementById('clock').textContent=p(n.getDate())+'/'+p(n.getMonth()+1)+'/'+n.getFullYear()+' '+p(n.getHours())+':'+p(n.getMinutes());}
