@@ -901,19 +901,4 @@ setInterval(uC,30000);
 window.addEventListener('load',function(){uC();});
 </script>
 </body>
-</html    // Tabelas lado a lado — HUBs e Transportadoras na mesma página
-    doc.text('Detalhamento por HUB',12,96);
-    var hubData=agF('hub');
-    var hvRows=hubData.slice(0,12).map(function(x,i){
-      var rv=PA.hubRV[x[0]]||{rotas:0,veics:0};
-      return[i+1,x[0].length>22?x[0].substring(0,22)+'…':x[0],rv.rotas,rv.veics,Object.keys(x[1].sl).length,x[1].pend.toLocaleString('pt-BR')];
-    });
-    doc.autoTable({startY:98,head:[['#','HUB','Rotas','Veículos','Sellers','Vol.Pend.']],body:hvRows,styles:{fontSize:7,cellPadding:1.8},headStyles:{fillColor:[37,99,235],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[240,244,255]},margin:{left:12,right:152},tableWidth:130,pageBreak:'avoid'});
-
-    doc.text('Detalhamento por Transportadora',152,96);
-    var transData=agF('trans');
-    var tvRows=transData.slice(0,12).map(function(x,i){
-      var rv=PA.transRV[x[0]]||{rotas:0,veics:0};
-      return[i+1,x[0].length>20?x[0].substring(0,20)+'…':x[0],rv.rotas,rv.veics,Object.keys(x[1].sl).length,x[1].pend.toLocaleString('pt-BR')];
-    });
-    doc.autoTable({startY:98,head:[['#','Transportadora','Rotas','Veículos','Sellers','Vol.Pend.']],body:tvRows,styles:{fontSize:7,cellPadding:1.8},headStyles:{fillColor:[234,88,12],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[255,247,237]},margin:{left:152,right:12},tableWidth:133,pageBreak:'avoid'});>
+</html>
