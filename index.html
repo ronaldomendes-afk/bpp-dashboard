@@ -149,6 +149,12 @@
     <div class="cc"><div class="ch"><div><div class="ct">🔴 Top 10 Ofensores</div><div class="cs">Sellers com mais volume parado hoje</div></div><span class="tg tr">OFENSORES</span></div><div class="cw h300"><canvas id="cO"></canvas></div></div>
     <div class="cc"><div class="ch"><div><div class="ct">🏆 Top 10 Performance</div><div class="cs">Sellers que mais coletaram hoje</div></div><span class="tg tgr">PERFORMANCE</span></div><div class="cw h300"><canvas id="cP"></canvas></div></div>
   </div>
+  <div class="sh">🚗 Rotas e Veículos — D0</div>
+  <div class="g2" style="margin-top:0">
+    <div class="cc"><div class="ch"><div><div class="ct">Rotas e Veículos por HUB</div><div class="cs">Total em operação hoje</div></div><span class="tg tc">FROTA</span></div><div class="dtw"><table><thead><tr><th>#</th><th>HUB</th><th>Rotas</th><th>Veículos</th><th>Sellers</th><th>Vol. Pend.</th></tr></thead><tbody id="tRVH"></tbody></table></div></div>
+    <div class="cc"><div class="ch"><div><div class="ct">Rotas e Veículos por Transportadora</div><div class="cs">Total em operação hoje</div></div><span class="tg to">FROTA</span></div><div class="dtw"><table><thead><tr><th>#</th><th>Transportadora</th><th>Rotas</th><th>Veículos</th><th>Sellers</th><th>Vol. Pend.</th></tr></thead><tbody id="tRVT"></tbody></table></div></div>
+  </div>
+
   <div class="sh">📦 Detalhamento e Alertas</div>
   <div class="g2" style="margin-top:0">
     <div class="cc"><div class="ch"><div><div class="ct">Estimado vs Coletado — Top 8 Sellers</div><div class="cs">Comparativo individual por seller</div></div><span class="tg tc">TOP 8</span></div><div id="evc"></div></div>
@@ -240,9 +246,14 @@ function pXD(t){
   var xiN={};h.forEach(function(v,i){xiN[_norm(v)]=i;});
   function _fc(n){return xi[n]!==undefined?xi[n]:xiN[_norm(n)];}
   var iP=_fc('Parada'),iD=_fc('Depósito'),iT=_fc('Transportadora'),iE=_fc('Pacotes estimados'),iC=_fc('Pacotes coletados'),iTP=_fc('Tipo de parada'),iV=_fc('Tipo de veículo'),iH=_fc('Horários'),iM=_fc('Motivo');
+  // Rotas e Veículos — colunas fixas do Base_XD
+  var iRt=_fc('ID do Rota')||0;        // coluna A — ID da rota
+  var iVc=_fc('ID do Veículo')||9;     // coluna J — ID do veículo
   if(iP===undefined)iP=12;if(iE===undefined)iE=15;if(iC===undefined)iC=18;if(iTP===undefined)iTP=11;if(iT===undefined)iT=7;if(iH===undefined)iH=14;if(iM===undefined)iM=22;
   if(h.length<3)return{error:'CSV inválido: apenas '+h.length+' colunas'};
   var sa={},ha={},va={},ma={},tE=0,tC=0,n=0;
+  // Mapas de rotas e veículos por HUB e Transportadora
+  var hubRoutes={},hubVeics={},transRoutes={},transVeics={};
   for(var i=1;i<ls.length;i++){
     var c=pl(ls[i],d);
     if(!c||c.length<5)continue;
@@ -251,7 +262,22 @@ function pXD(t){
     var e=parseInt(c[iE])||0,co=iC!==undefined?(parseInt(c[iC])||0):0;
     var hub=iD!==undefined?(c[iD]||''). trim():'',tr=iT!==undefined?(c[iT]||''). trim():'';
     var v=iV!==undefined?(c[iV]||''). trim():'',hr=iH!==undefined?(c[iH]||''). trim():'',m=iM!==undefined?(c[iM]||''). trim():'';
+    var rt=(c[iRt]||'').trim(),vc=(c[iVc]||'').trim();
     tE+=e;tC+=co;n++;
+    // Rotas e veículos por HUB
+    if(hub){
+      if(!hubRoutes[hub])hubRoutes[hub]=new Set();
+      if(!hubVeics[hub])hubVeics[hub]=new Set();
+      if(rt)hubRoutes[hub].add(rt);
+      if(vc)hubVeics[hub].add(vc);
+    }
+    // Rotas e veículos por Transportadora
+    if(tr){
+      if(!transRoutes[tr])transRoutes[tr]=new Set();
+      if(!transVeics[tr])transVeics[tr]=new Set();
+      if(rt)transRoutes[tr].add(rt);
+      if(vc)transVeics[tr].add(vc);
+    }
     if(!sa[s])sa[s]={seller:s,hub:hub,trans:tr,est:0,col:0,motivo:m,veiculo:v};
     sa[s].est+=e;sa[s].col+=co;
     if(m&&m!=='Coleta Parcial')sa[s].motivo=m;
@@ -261,7 +287,11 @@ function pXD(t){
   }
   var rw=[];
   Object.values(sa).forEach(function(d){var p=d.est-d.col;if(p>0)rw.push({seller:d.seller,hub:d.hub,trans:d.trans,vol:p,est:d.est,col:d.col,motivo:d.motivo,veiculo:d.veiculo});});
-  return{raw:rw,efic:{est:tE,col:tC},ha:ha,va:va,ma:ma,n:n};
+  // Converter Sets para arrays com contagem
+  var hr2={},tr2={};
+  Object.keys(hubRoutes).forEach(function(h){hr2[h]={rotas:hubRoutes[h].size,veics:hubVeics[h]?hubVeics[h].size:0};});
+  Object.keys(transRoutes).forEach(function(t){tr2[t]={rotas:transRoutes[t].size,veics:transVeics[t]?transVeics[t].size:0};});
+  return{raw:rw,efic:{est:tE,col:tC},ha:ha,va:va,ma:ma,n:n,hubRV:hr2,transRV:tr2};
 }
 
 // ===== PARSE HISTÓRICO =====
@@ -452,6 +482,50 @@ function uK(){
   if(el_card){el_card.style.boxShadow=efShadow;el_card.style.transition='box-shadow .4s';}
   if(el_barf){el_barf.style.width=Math.min(100,pct)+'%';el_barf.style.background=pC;}
   if(tO)document.getElementById('at').innerHTML='<strong>ALERTA:</strong> Principal ofensor: <span class="hl">'+tO.vol.toLocaleString('pt-BR')+' pct pendentes</span> — '+tO.seller+' · HUB '+tO.hub+' · '+tO.trans;
+}
+
+// ===== ROTAS E VEÍCULOS =====
+function bRV(){
+  if(!PA.hubRV)return;
+  // Por HUB
+  var tbH=document.getElementById('tRVH');
+  if(tbH){
+    tbH.innerHTML='';
+    // Cruzar com agF para pegar sellers e vol pendente por hub
+    var hubData=agF('hub');
+    hubData.forEach(function(x,i){
+      var hub=x[0],rv=PA.hubRV[hub]||{rotas:0,veics:0};
+      var ns=Object.keys(x[1].sl).length;
+      tbH.innerHTML+='<tr>'
+        +'<td>'+(i+1)+'</td>'
+        +'<td class="tn2">'+hub+'</td>'
+        +'<td style="color:var(--accent);font-weight:700">'+rv.rotas+'</td>'
+        +'<td style="color:var(--purple);font-weight:700">'+rv.veics+'</td>'
+        +'<td style="color:var(--muted2)">'+ns+'</td>'
+        +'<td class="tv">'+x[1].pend.toLocaleString('pt-BR')+'</td>'
+        +'</tr>';
+    });
+    if(!hubData.length)tbH.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px;font-family:IBM Plex Sans">Sem dados</td></tr>';
+  }
+  // Por Transportadora
+  var tbT=document.getElementById('tRVT');
+  if(tbT){
+    tbT.innerHTML='';
+    var transData=agF('trans');
+    transData.forEach(function(x,i){
+      var tr=x[0],rv=PA.transRV[tr]||{rotas:0,veics:0};
+      var ns=Object.keys(x[1].sl).length;
+      tbT.innerHTML+='<tr>'
+        +'<td>'+(i+1)+'</td>'
+        +'<td class="tn2">'+(tr.length>26?tr.substring(0,26)+'\u2026':tr)+'</td>'
+        +'<td style="color:var(--accent);font-weight:700">'+rv.rotas+'</td>'
+        +'<td style="color:var(--purple);font-weight:700">'+rv.veics+'</td>'
+        +'<td style="color:var(--muted2)">'+ns+'</td>'
+        +'<td class="tv">'+x[1].pend.toLocaleString('pt-BR')+'</td>'
+        +'</tr>';
+    });
+    if(!transData.length)tbT.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px;font-family:IBM Plex Sans">Sem dados</td></tr>';
+  }
 }
 
 // ===== D0 CHARTS =====
@@ -658,7 +732,7 @@ function bComp(){
 function sT(n,el){document.querySelectorAll('.tp').forEach(function(p){p.classList.remove('a');});document.querySelectorAll('.tb').forEach(function(b){b.classList.remove('a');});document.getElementById('tab-'+n).classList.add('a');el.classList.add('a');rT(n);}
 var rendered={};
 function rT(n){
-  if(n==='d0'&&!rendered.d0){bH();bHEC();bT();bTEC();bO();bP();bVE();bMEC();bEV();bAL();bHR();bMO();rendered.d0=true;}
+  if(n==='d0'&&!rendered.d0){bH();bHEC();bT();bTEC();bO();bP();bVE();bMEC();bEV();bAL();bHR();bMO();bRV();rendered.d0=true;}
   else if(n==='bpp'){bBPP();bDSC();}
   else if(n==='spr'){bSB();bSP();bSC();bST();}
   else if(n==='comp'){bComp();}
