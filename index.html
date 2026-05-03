@@ -151,8 +151,12 @@
   </div>
   <div class="sh">🚗 Rotas e Veículos — D0</div>
   <div class="g2" style="margin-top:0">
-    <div class="cc"><div class="ch"><div><div class="ct">Rotas e Veículos por HUB</div><div class="cs">Total em operação hoje</div></div><span class="tg tc">FROTA</span></div><div class="dtw"><table><thead><tr><th>#</th><th>HUB</th><th>Rotas</th><th>Veículos</th><th>Sellers</th><th>Vol. Pend.</th></tr></thead><tbody id="tRVH"></tbody></table></div></div>
-    <div class="cc"><div class="ch"><div><div class="ct">Rotas e Veículos por Transportadora</div><div class="cs">Total em operação hoje</div></div><span class="tg to">FROTA</span></div><div class="dtw"><table><thead><tr><th>#</th><th>Transportadora</th><th>Rotas</th><th>Veículos</th><th>Sellers</th><th>Vol. Pend.</th></tr></thead><tbody id="tRVT"></tbody></table></div></div>
+    <div class="cc"><div class="ch"><div><div class="ct">Rotas e Veículos por HUB</div><div class="cs">Total em operação hoje</div></div><span class="tg tc">FROTA</span></div><div class="cw h260"><canvas id="cRVH"></canvas></div></div>
+    <div class="cc"><div class="ch"><div><div class="ct">Rotas e Veículos por Transportadora</div><div class="cs">Total em operação hoje</div></div><span class="tg to">FROTA</span></div><div class="cw h260"><canvas id="cRVT"></canvas></div></div>
+  </div>
+  <div class="g2" style="margin-top:0">
+    <div class="cc"><div class="ch"><div><div class="ct">Detalhamento por HUB</div><div class="cs">Rotas · Veículos · Sellers · Volume</div></div><span class="tg tc">FROTA</span></div><div class="dtw"><table><thead><tr><th>#</th><th>HUB</th><th>Rotas</th><th>Veículos</th><th>Sellers</th><th>Vol. Pend.</th></tr></thead><tbody id="tRVH"></tbody></table></div></div>
+    <div class="cc"><div class="ch"><div><div class="ct">Detalhamento por Transportadora</div><div class="cs">Rotas · Veículos · Sellers · Volume</div></div><span class="tg to">FROTA</span></div><div class="dtw"><table><thead><tr><th>#</th><th>Transportadora</th><th>Rotas</th><th>Veículos</th><th>Sellers</th><th>Vol. Pend.</th></tr></thead><tbody id="tRVT"></tbody></table></div></div>
   </div>
 
   <div class="sh">📦 Detalhamento e Alertas</div>
@@ -487,42 +491,70 @@ function uK(){
 // ===== ROTAS E VEÍCULOS =====
 function bRV(){
   if(!PA.hubRV)return;
-  // Por HUB
+  var hubData=agF('hub');
+  var transData=agF('trans');
+
+  // ── Gráfico HUBs ──
+  dc('rvh');
+  var crvh=document.getElementById('cRVH');
+  if(crvh&&hubData.length){
+    var lblH=hubData.map(function(x){return x[0].length>12?x[0].substring(0,12)+'…':x[0];});
+    var rotasH=hubData.map(function(x){return (PA.hubRV[x[0]]||{rotas:0}).rotas;});
+    var veicsH=hubData.map(function(x){return (PA.hubRV[x[0]]||{veics:0}).veics;});
+    C.rvh=new Chart(crvh,{type:'bar',data:{labels:lblH,datasets:[
+      {label:'Rotas',data:rotasH,backgroundColor:'rgba(37,99,235,.75)',borderRadius:{topLeft:4,topRight:4},borderSkipped:false,borderWidth:0},
+      {label:'Veículos',data:veicsH,backgroundColor:'rgba(124,58,237,.75)',borderRadius:{topLeft:4,topRight:4},borderSkipped:false,borderWidth:0}
+    ]},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#334155',font:{family:'IBM Plex Sans',size:11,weight:'600'}},position:'top'},
+        tooltip:{callbacks:{label:function(ctx){return ' '+ctx.dataset.label+': '+ctx.raw;}}}},
+      scales:{x:{ticks:{color:'#334155',font:{family:'IBM Plex Sans',size:10,weight:'600'}},grid:{display:false},border:{display:false}},
+        y:{ticks:{...TK,callback:function(v){return v;}},grid:GR,border:{display:false}}}},plugins:[DLP]});
+  }
+
+  // ── Gráfico Transportadoras ──
+  dc('rvt');
+  var crvt=document.getElementById('cRVT');
+  if(crvt&&transData.length){
+    var top=transData.slice(0,10);
+    var lblT=top.map(function(x){var s=x[0].replace('TRANSPORTES','TRANSP').replace('TRANSPORTADORA','TRANSP');return s.length>16?s.substring(0,16)+'…':s;});
+    var rotasT=top.map(function(x){return (PA.transRV[x[0]]||{rotas:0}).rotas;});
+    var veicsT=top.map(function(x){return (PA.transRV[x[0]]||{veics:0}).veics;});
+    C.rvt=new Chart(crvt,{type:'bar',data:{labels:lblT,datasets:[
+      {label:'Rotas',data:rotasT,backgroundColor:'rgba(234,88,12,.75)',borderRadius:{topLeft:4,topRight:4},borderSkipped:false,borderWidth:0},
+      {label:'Veículos',data:veicsT,backgroundColor:'rgba(217,119,6,.75)',borderRadius:{topLeft:4,topRight:4},borderSkipped:false,borderWidth:0}
+    ]},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#334155',font:{family:'IBM Plex Sans',size:11,weight:'600'}},position:'top'},
+        tooltip:{callbacks:{label:function(ctx){return ' '+ctx.dataset.label+': '+ctx.raw;}}}},
+      scales:{x:{ticks:{color:'#334155',font:{family:'IBM Plex Sans',size:10,weight:'600'},maxRotation:20},grid:{display:false},border:{display:false}},
+        y:{ticks:{...TK,callback:function(v){return v;}},grid:GR,border:{display:false}}}},plugins:[DLP]});
+  }
+
+  // ── Tabela HUBs ──
   var tbH=document.getElementById('tRVH');
   if(tbH){
     tbH.innerHTML='';
-    // Cruzar com agF para pegar sellers e vol pendente por hub
-    var hubData=agF('hub');
     hubData.forEach(function(x,i){
-      var hub=x[0],rv=PA.hubRV[hub]||{rotas:0,veics:0};
+      var rv=PA.hubRV[x[0]]||{rotas:0,veics:0};
       var ns=Object.keys(x[1].sl).length;
-      tbH.innerHTML+='<tr>'
-        +'<td>'+(i+1)+'</td>'
-        +'<td class="tn2">'+hub+'</td>'
+      tbH.innerHTML+='<tr><td>'+(i+1)+'</td><td class="tn2">'+x[0]+'</td>'
         +'<td style="color:var(--accent);font-weight:700">'+rv.rotas+'</td>'
         +'<td style="color:var(--purple);font-weight:700">'+rv.veics+'</td>'
-        +'<td style="color:var(--muted2)">'+ns+'</td>'
-        +'<td class="tv">'+x[1].pend.toLocaleString('pt-BR')+'</td>'
-        +'</tr>';
+        +'<td>'+ns+'</td><td class="tv">'+x[1].pend.toLocaleString('pt-BR')+'</td></tr>';
     });
     if(!hubData.length)tbH.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px;font-family:IBM Plex Sans">Sem dados</td></tr>';
   }
-  // Por Transportadora
+
+  // ── Tabela Transportadoras ──
   var tbT=document.getElementById('tRVT');
   if(tbT){
     tbT.innerHTML='';
-    var transData=agF('trans');
     transData.forEach(function(x,i){
-      var tr=x[0],rv=PA.transRV[tr]||{rotas:0,veics:0};
+      var rv=PA.transRV[x[0]]||{rotas:0,veics:0};
       var ns=Object.keys(x[1].sl).length;
-      tbT.innerHTML+='<tr>'
-        +'<td>'+(i+1)+'</td>'
-        +'<td class="tn2">'+(tr.length>26?tr.substring(0,26)+'\u2026':tr)+'</td>'
-        +'<td style="color:var(--accent);font-weight:700">'+rv.rotas+'</td>'
-        +'<td style="color:var(--purple);font-weight:700">'+rv.veics+'</td>'
-        +'<td style="color:var(--muted2)">'+ns+'</td>'
-        +'<td class="tv">'+x[1].pend.toLocaleString('pt-BR')+'</td>'
-        +'</tr>';
+      tbT.innerHTML+='<tr><td>'+(i+1)+'</td><td class="tn2">'+(x[0].length>26?x[0].substring(0,26)+'\u2026':x[0])+'</td>'
+        +'<td style="color:var(--orange);font-weight:700">'+rv.rotas+'</td>'
+        +'<td style="color:var(--yellow);font-weight:700">'+rv.veics+'</td>'
+        +'<td>'+ns+'</td><td class="tv">'+x[1].pend.toLocaleString('pt-BR')+'</td></tr>';
     });
     if(!transData.length)tbT.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px;font-family:IBM Plex Sans">Sem dados</td></tr>';
   }
