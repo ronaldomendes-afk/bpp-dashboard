@@ -782,17 +782,155 @@ function exportPDF(){
   var doc=new j({orientation:'landscape',unit:'mm',format:'a4'});
   var now=new Date(),dh=now.toLocaleDateString('pt-BR')+' '+now.toLocaleTimeString('pt-BR');
   var tot=D.reduce(function(s,x){return s+x.vol;},0);
-  doc.setFillColor(255,230,0);doc.rect(0,0,297,18,'F');
-  doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(26,26,46);
-  doc.text('BPP - Performance de Coletas Seller · D0',14,12);
-  doc.setFontSize(9);doc.text('Gerado: '+dh+' · '+D.length+' sellers · '+tot.toLocaleString('pt-BR')+' vol pendente',14,17);
   var ep=E.est>0?Math.round(E.col/E.est*1000)/10:0;
-  doc.text('Eficiência: '+ep+'%   Estimado: '+E.est.toLocaleString('pt-BR')+'   Coletado: '+E.col.toLocaleString('pt-BR'),180,12);
-  var rows=D.slice().sort(function(a,b){return b.vol-a.vol;}).slice(0,80).map(function(d,i){var ef=d.est>0?Math.round(d.col/d.est*100):0;return[i+1,d.seller,d.hub,d.trans.length>22?d.trans.substring(0,22):d.trans,(d.est||0).toLocaleString('pt-BR'),(d.col||0).toLocaleString('pt-BR'),d.vol.toLocaleString('pt-BR'),ef+'%',d.motivo||'—'];});
-  doc.autoTable({startY:20,head:[['#','Seller','HUB','Transportadora','Estimado','Coletado','Pendente','Efic.','Motivo']],body:rows,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[26,26,46],textColor:[255,230,0],fontStyle:'bold'},alternateRowStyles:{fillColor:[240,244,255]},didParseCell:function(data){if(data.section==='body'&&data.column.index===6){data.cell.styles.textColor=[0,150,255];data.cell.styles.fontStyle='bold';}}});
-  var pc=doc.internal.getNumberOfPages();
-  for(var i=1;i<=pc;i++){doc.setPage(i);doc.setFillColor(26,26,46);doc.rect(0,195,297,12,'F');doc.setFontSize(7);doc.setTextColor(255,230,0);doc.text('BPP Dashboard · '+dh+' · Pág '+i+'/'+pc,14,201);}
-  doc.save('BPP_D0_'+now.toLocaleDateString('pt-BR').replace(/\//g,'-')+'.pdf');
+  var pW=297,pH=210; // A4 landscape mm
+
+  // ── Helper: cabeçalho de página ──
+  function pgHeader(title,page){
+    doc.setFillColor(255,230,0);doc.rect(0,0,pW,14,'F');
+    doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(26,26,46);
+    doc.text('BPP \u00b7 Performance de Coletas Seller \u2014 '+title,12,9);
+    doc.setFontSize(8);doc.setFont('helvetica','normal');
+    doc.text(dh,pW-12,9,{align:'right'});
+    doc.setFillColor(26,26,46);doc.rect(0,pH-10,pW,10,'F');
+    doc.setFontSize(7);doc.setTextColor(255,230,0);
+    doc.text('BPP Dashboard \u00b7 '+dh+' \u00b7 P\u00e1g '+page,12,pH-4);
+    doc.text('Confidencial \u2014 Uso Interno Mercado Livre',pW-12,pH-4,{align:'right'});
+  }
+
+  // ── Helper: bloco KPI ──
+  function kpiBox(x,y,w,h,label,value,color){
+    doc.setFillColor(248,250,252);doc.roundedRect(x,y,w,h,2,2,'F');
+    doc.setDrawColor(226,232,240);doc.roundedRect(x,y,w,h,2,2,'S');
+    doc.setFillColor.apply(doc,color);doc.rect(x,y,w,1.5,'F');
+    doc.setFontSize(16);doc.setFont('helvetica','bold');doc.setTextColor(color[0],color[1],color[2]);
+    doc.text(String(value),x+w/2,y+h/2+1,{align:'center'});
+    doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(100,116,139);
+    doc.text(label.toUpperCase(),x+w/2,y+h-3,{align:'center'});
+  }
+
+  // ── Helper: inserir gráfico do canvas ──
+  function addChart(canvasId,x,y,w,h){
+    var canvas=document.getElementById(canvasId);
+    if(!canvas)return false;
+    try{
+      var img=canvas.toDataURL('image/png',1.0);
+      doc.addImage(img,'PNG',x,y,w,h);
+      return true;
+    }catch(e){return false;}
+  }
+
+  // ════════════════════════════════════════════
+  // PÁGINA 1 — KPIs + Visão Geral
+  // ════════════════════════════════════════════
+  pgHeader('Vis\u00e3o D0',1);
+
+  // KPIs principais
+  var efC=ep>=90?[5,150,105]:ep>=80?[217,119,6]:[220,38,38];
+  kpiBox(12,17,50,22,'Vol. Pendente',tot.toLocaleString('pt-BR'),[220,38,38]);
+  kpiBox(66,17,50,22,'Sellers c/ Pend.',D.length,[234,88,12]);
+  kpiBox(120,17,50,22,'Total Estimado',E.est.toLocaleString('pt-BR'),[37,99,235]);
+  kpiBox(174,17,50,22,'Total Coletado',E.col.toLocaleString('pt-BR'),[5,150,105]);
+  kpiBox(228,17,57,22,'Efici\u00eancia Geral',ep+'%',efC);
+
+  // Gráficos linha 1: HUB pendente + HUB estimado/coletado
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(71,85,105);
+  doc.text('Volume Pendente por HUB',12,44);
+  doc.text('Estimado vs Coletado por HUB',152,44);
+  addChart('cH',12,46,130,58);
+  addChart('cHEC',152,46,133,58);
+
+  // Gráficos linha 2: Transp pendente + Transp est/col
+  doc.text('Volume Pendente por Transportadora',12,108);
+  doc.text('Estimado vs Coletado por Transportadora',152,108);
+  addChart('cT',12,110,130,55);
+  addChart('cTEC',152,110,133,55);
+
+  // ════════════════════════════════════════════
+  // PÁGINA 2 — Sellers + Motivos + Horários
+  // ════════════════════════════════════════════
+  doc.addPage();pgHeader('Sellers \u2014 Performance e Alertas',2);
+
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(71,85,105);
+  doc.text('Top 10 Ofensores (Maior Pendente)',12,18);
+  doc.text('Top 10 Performers (Mais Coletado)',152,18);
+  addChart('cO',12,20,130,65);
+  addChart('cP',152,20,133,65);
+
+  doc.text('Volume por Janela Hor\u00e1ria',12,90);
+  doc.text('Motivos de Falha \u2014 Root Cause',152,90);
+  addChart('cHR',12,92,130,55);
+  addChart('cM',152,92,133,55);
+
+  doc.text('Modal \u2014 Share de Coleta',12,151);
+  doc.text('Estimado vs Coletado por Modal',152,151);
+  addChart('cV',12,153,130,48);
+  addChart('cMEC',152,153,133,48);
+
+  // ════════════════════════════════════════════
+  // PÁGINA 3 — Rotas e Veículos
+  // ════════════════════════════════════════════
+  if(PA.hubRV){
+    doc.addPage();pgHeader('Rotas e Ve\u00edculos \u2014 Frota D0',3);
+    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(71,85,105);
+    doc.text('Rotas e Ve\u00edculos por HUB',12,18);
+    doc.text('Rotas e Ve\u00edculos por Transportadora',152,18);
+    addChart('cRVH',12,20,130,70);
+    addChart('cRVT',152,20,133,70);
+
+    // Tabela resumo HUBs
+    doc.text('Detalhamento por HUB',12,96);
+    var hubData=agF('hub');
+    var hvRows=hubData.slice(0,15).map(function(x,i){
+      var rv=PA.hubRV[x[0]]||{rotas:0,veics:0};
+      return[i+1,x[0],rv.rotas,rv.veics,Object.keys(x[1].sl).length,x[1].pend.toLocaleString('pt-BR')];
+    });
+    doc.autoTable({startY:98,startX:12,tableWidth:130,head:[['#','HUB','Rotas','Ve\u00edculos','Sellers','Vol.Pend.']],body:hvRows,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[37,99,235],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[240,244,255]},margin:{left:12}});
+
+    // Tabela resumo Transportadoras
+    doc.text('Detalhamento por Transportadora',152,96);
+    var transData=agF('trans');
+    var tvRows=transData.slice(0,15).map(function(x,i){
+      var rv=PA.transRV[x[0]]||{rotas:0,veics:0};
+      return[i+1,x[0].length>20?x[0].substring(0,20)+'…':x[0],rv.rotas,rv.veics,Object.keys(x[1].sl).length,x[1].pend.toLocaleString('pt-BR')];
+    });
+    doc.autoTable({startY:98,head:[['#','Transportadora','Rotas','Ve\u00edculos','Sellers','Vol.Pend.']],body:tvRows,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[234,88,12],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[255,247,237]},margin:{left:152},tableWidth:133});
+  }
+
+  // ════════════════════════════════════════════
+  // PÁGINA 4 — BPP Completo
+  // ════════════════════════════════════════════
+  doc.addPage();pgHeader('BPP \u2014 Detalhamento Completo',4);
+
+  // Resumo no topo
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(71,85,105);
+  doc.text(D.length+' sellers com pend\u00eancia \u00b7 '+tot.toLocaleString('pt-BR')+' pacotes pendentes \u00b7 Efici\u00eancia: '+ep+'%',12,18);
+
+  var rows=D.slice().sort(function(a,b){return b.vol-a.vol;}).slice(0,120).map(function(d,i){
+    var ef=d.est>0?Math.round(d.col/d.est*100):0;
+    return[i+1,d.seller,d.hub,d.trans.length>20?d.trans.substring(0,20)+'…':d.trans,
+      (d.est||0).toLocaleString('pt-BR'),(d.col||0).toLocaleString('pt-BR'),
+      d.vol.toLocaleString('pt-BR'),ef+'%',d.motivo||'—'];
+  });
+  doc.autoTable({
+    startY:20,
+    head:[['#','Seller','HUB','Transportadora','Estimado','Coletado','Pendente','Efic.','Motivo']],
+    body:rows,
+    styles:{fontSize:7,cellPadding:2},
+    headStyles:{fillColor:[26,26,46],textColor:[255,230,0],fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[240,244,255]},
+    columnStyles:{6:{textColor:[220,38,38],fontStyle:'bold'},7:{fontStyle:'bold'}},
+    didParseCell:function(data){
+      if(data.section==='body'&&data.column.index===7){
+        var v=parseInt(data.cell.raw);
+        data.cell.styles.textColor=v>=90?[5,150,105]:v>=80?[217,119,6]:[220,38,38];
+      }
+    },
+    margin:{left:12,right:12}
+  });
+
+  // Rodapé em todas as páginas já adicionado pelo pgHeader
+  doc.save('BPP_D0_'+now.toLocaleDateString('pt-BR').replace(/\//g,'-')+'_'+now.getHours()+'h'+String(now.getMinutes()).padStart(2,'0')+'.pdf');
 }
 
 setInterval(uC,30000);
