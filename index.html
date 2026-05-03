@@ -193,19 +193,23 @@
     <div style="margin-top:20px;padding:14px 20px;background:#001233;border:1px solid #002a6e;border-radius:10px;font-size:11px;color:var(--muted2);line-height:1.7">O comparativo semanal mostra:<br>🟢 Evolução de eficiência por HUB (W-1 vs W0)<br>🔵 Transportadoras que melhoraram ou pioraram<br>🟡 Delta de PND e coletados semana a semana</div>
   </div>
   <div id="comp-content" style="display:none">
-    <div class="comp-period-bar">
-      <span class="filter-label">Período A</span>
-      <span style="font-size:11px;color:var(--muted2)">De:</span>
-      <input type="date" id="pd1s" style="background:#001233;border:1px solid #002a6e;color:#c8d8f0;padding:5px 10px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;cursor:pointer;outline:none;color-scheme:dark">
-      <span style="font-size:11px;color:var(--muted2)">Até:</span>
-      <input type="date" id="pd1e" style="background:#001233;border:1px solid #002a6e;color:#c8d8f0;padding:5px 10px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;cursor:pointer;outline:none;color-scheme:dark">
-      <span class="comp-vs" style="font-size:14px">VS</span>
-      <span class="filter-label">Período B</span>
-      <input type="date" id="pd2s" style="background:#001233;border:1px solid #002a6e;color:#c8d8f0;padding:5px 10px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;cursor:pointer;outline:none;color-scheme:dark">
-      <span style="font-size:11px;color:var(--muted2)">Até:</span>
-      <input type="date" id="pd2e" style="background:#001233;border:1px solid #002a6e;color:#c8d8f0;padding:5px 10px;border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;cursor:pointer;outline:none;color-scheme:dark">
-      <button class="comp-apply" onclick="bComp()">↺ Comparar</button>
-      <span id="comp-status" style="font-size:11px;color:var(--muted);margin-left:8px"></span>
+    <div class="comp-period-bar" style="flex-direction:column;align-items:flex-start;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%">
+        <span class="filter-label">Atalhos</span>
+        <button class="qb" onclick="qComp('prev1',this)">Semana anterior</button>
+        <button class="qb" onclick="qComp('prev2',this)">2 semanas atrás</button>
+        <button class="qb" onclick="qComp('prev4',this)">4 semanas atrás</button>
+        <button class="qb" onclick="qComp('mes',this)">Mês anterior completo</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="filter-label">Semana A</span>
+        <select id="fw1" style="min-width:200px"></select>
+        <span class="comp-vs" style="font-size:16px;color:var(--meli);font-weight:900">VS</span>
+        <span class="filter-label">Semana B</span>
+        <select id="fw2" style="min-width:200px"></select>
+        <button class="comp-apply" onclick="bComp()">↺ Comparar</button>
+        <span id="comp-status" style="font-size:11px;color:#6090c0;margin-left:4px"></span>
+      </div>
     </div>
     <div class="sh">Variação Semanal — KPIs</div>
     <div class="comp-kpi-grid" id="comp-kpis"></div>
@@ -330,20 +334,12 @@ function hCSV2(ev){
       var res=pHist(e.target.result);
       if(res.error){sToast('err','❌',res.error);return;}
       HS=res;
-      // Popular date inputs com o range do histórico
-      if(res.dates.length>=1){
-        function toISO(d){var p=d.split('/');return p[2]+'-'+(p[1].length<2?'0'+p[1]:p[1])+'-'+(p[0].length<2?'0'+p[0]:p[0]);}
-        var allF=res.dates.map(function(wk){return res.wkFirstDate[wk];}).filter(Boolean);
-        var allL=res.dates.map(function(wk){return res.wkLastDate[wk];}).filter(Boolean);
-        var minD=allF.reduce(function(a,b){return _dtObj(a)<_dtObj(b)?a:b;});
-        var maxD=allL.reduce(function(a,b){return _dtObj(a)>_dtObj(b)?a:b;});
-        var midIdx=Math.floor(res.dates.length/2);
-        var midWk=res.dates[midIdx];var midD=res.wkFirstDate[midWk]||minD;
-        var el1s=document.getElementById('pd1s'),el1e=document.getElementById('pd1e');
-        var el2s=document.getElementById('pd2s'),el2e=document.getElementById('pd2e');
-        if(el1s)el1s.value=toISO(midD);if(el1e)el1e.value=toISO(maxD);
-        if(el2s)el2s.value=toISO(minD);if(el2e)el2e.value=toISO(midD);
-      }
+      // Popular selects de semana
+      var fw1=document.getElementById('fw1'),fw2=document.getElementById('fw2');
+      fw1.innerHTML='';fw2.innerHTML='';
+      res.dates.forEach(function(wk){var lb=wkLabel(wk);fw1.add(new Option(lb,wk));fw2.add(new Option(lb,wk));});
+      fw1.selectedIndex=res.dates.length-1;
+      fw2.selectedIndex=Math.max(0,res.dates.length-2);
       document.getElementById('comp-empty').style.display='none';
       document.getElementById('comp-content').style.display='block';
       document.getElementById('cb2').classList.add('lh');
@@ -517,41 +513,39 @@ function bSC(){var d=agF('trans'),tot=d.reduce(function(s,x){return s+x[1].pend;
 function bST(){var d=agF('trans'),tot=d.reduce(function(s,x){return s+x[1].pend;},0),tb=document.getElementById('ts');if(!tb)return;tb.innerHTML='';if(!d.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px;font-family:IBM Plex Sans">Carregue o CSV.</td></tr>';return;}d.forEach(function(x,i){var p=tot>0?((x[1].pend/tot)*100).toFixed(1):'0',ef=x[1].est>0?Math.round(x[1].col/x[1].est*100):0;var eC=ef>=80?'var(--green)':ef>=50?'var(--yellow)':'var(--red)',ns=Object.keys(x[1].sl).length;tb.innerHTML+='<tr><td>'+(i+1)+'</td><td class="tn2">'+x[0]+'</td><td>'+x[1].est.toLocaleString('pt-BR')+'</td><td style="color:var(--green)">'+x[1].col.toLocaleString('pt-BR')+'</td><td class="tv">'+x[1].pend.toLocaleString('pt-BR')+'</td><td style="color:'+eC+'">'+ef+'%</td><td style="color:var(--yellow)">'+ns+'</td><td>'+p+'%</td></tr>';});}
 
 // ===== COMPARATIVO =====
-function _aggPeriod(dateFrom,dateTo){
-  var res={hubs:{},trans:{},totPnd:0,totCol:0,sellers:{}};
-  if(!HS||!HS.byWeek)return res;
-  var from=_dtObj(dateFrom),to=_dtObj(dateTo);
-  HS.dates.forEach(function(wk){
-    var wf=HS.wkFirstDate[wk]?_dtObj(HS.wkFirstDate[wk]):null;
-    var wl=HS.wkLastDate[wk]?_dtObj(HS.wkLastDate[wk]):null;
-    if(!wf||!wl||wf>to||wl<from)return;
-    var w=HS.byWeek[wk];
-    res.totPnd+=w.totPnd;res.totCol+=w.totCol;
-    Object.keys(w.sellers).forEach(function(s){res.sellers[s]=1;});
-    Object.keys(w.hubs).forEach(function(h){if(!res.hubs[h])res.hubs[h]={pnd:0,col:0};res.hubs[h].pnd+=w.hubs[h].pnd;res.hubs[h].col+=w.hubs[h].col;});
-    Object.keys(w.trans).forEach(function(t){if(!res.trans[t])res.trans[t]={pnd:0,col:0};res.trans[t].pnd+=w.trans[t].pnd;res.trans[t].col+=w.trans[t].col;});
-  });
-  return res;
+// ===== ATALHOS COMPARATIVO =====
+function qComp(tipo, el){
+  if(!HS||!HS.dates||HS.dates.length<2)return;
+  document.querySelectorAll('.comp-period-bar .qb').forEach(function(b){b.classList.remove('a');});
+  if(el)el.classList.add('a');
+  var fw1=document.getElementById('fw1'),fw2=document.getElementById('fw2');
+  var last=HS.dates.length-1;
+  if(tipo==='prev1'){fw1.value=HS.dates[last];fw2.value=HS.dates[Math.max(0,last-1)];}
+  else if(tipo==='prev2'){fw1.value=HS.dates[last];fw2.value=HS.dates[Math.max(0,last-2)];}
+  else if(tipo==='prev4'){fw1.value=HS.dates[last];fw2.value=HS.dates[Math.max(0,last-4)];}
+  else if(tipo==='mes'){
+    // Semana mais recente vs a mesma semana ~4 semanas antes
+    fw1.value=HS.dates[last];fw2.value=HS.dates[Math.max(0,last-4)];
+  }
+  bComp();
 }
-function _isoToDate(s){if(!s)return null;var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+
 function bComp(){
   if(!HS||!HS.dates||!HS.dates.length)return;
-  var el1s=document.getElementById('pd1s'),el1e=document.getElementById('pd1e');
-  var el2s=document.getElementById('pd2s'),el2e=document.getElementById('pd2e');
-  var d1s=_isoToDate(el1s?el1s.value:''),d1e=_isoToDate(el1e?el1e.value:'');
-  var d2s=_isoToDate(el2s?el2s.value:''),d2e=_isoToDate(el2e?el2e.value:'');
-  if(!d1s||!d1e||!d2s||!d2e){sToast('err','❌','Preencha todas as datas');return;}
-  var w1=_aggPeriod(d2s,d2e),w2=_aggPeriod(d1s,d1e);
-  var lb1=d2s.substring(0,5)+'~'+d2e.substring(0,5);
-  var lb2=d1s.substring(0,5)+'~'+d1e.substring(0,5);
-  if(document.getElementById('comp-status'))document.getElementById('comp-status').textContent='A: '+lb2+' vs B: '+lb1;
+  var fw1=document.getElementById('fw1'),fw2=document.getElementById('fw2');
+  var dt1=fw1?fw1.value:HS.dates[HS.dates.length-1];
+  var dt2=fw2?fw2.value:HS.dates[Math.max(0,HS.dates.length-2)];
+  var w1=HS.byWeek[dt1],w2=HS.byWeek[dt2];
+  if(!w1||!w2){sToast('err','❌','Selecione duas semanas diferentes');return;}
+  var lb1=wkLabel(dt1),lb2=wkLabel(dt2);
+  if(document.getElementById('comp-status'))document.getElementById('comp-status').textContent=lb1+' vs '+lb2;
   var ef1=hEf(w1.totPnd,w1.totCol),ef2=hEf(w2.totPnd,w2.totCol);
   var dEf=ef2-ef1,dPnd=w2.totPnd-w1.totPnd,dCol=w2.totCol-w1.totCol;
   var s1=Object.keys(w1.sellers).length,s2=Object.keys(w2.sellers).length,dS=s2-s1;
   function dlCl(v,inv){if(v>0)return inv?'var(--red)':'var(--green)';if(v<0)return inv?'var(--green)':'var(--red)';return'var(--muted)';}
   function dlAr(v){return v>0?'▲':v<0?'▼':'=';}
   var kc=document.getElementById('comp-kpis');
-  if(kc){kc.innerHTML='';[{bg:'linear-gradient(135deg,#003020,#001a10)',border:'rgba(0,224,158,.2)',ico:'⚡',val:ef2+'%',lbl:'Eficiência W0',sub:dlAr(dEf)+' '+Math.abs(dEf)+'pp vs '+lb1,scol:dlCl(dEf,false)},{bg:'linear-gradient(135deg,#2d0010,#1a0005)',border:'rgba(255,58,92,.2)',ico:'📦',val:w2.totPnd.toLocaleString('pt-BR'),lbl:'PND W0',sub:dlAr(-dPnd)+' '+Math.abs(dPnd).toLocaleString('pt-BR')+' vs '+lb1,scol:dlCl(-dPnd,false)},{bg:'linear-gradient(135deg,#003040,#001a20)',border:'rgba(0,200,255,.2)',ico:'✅',val:w2.totCol.toLocaleString('pt-BR'),lbl:'Coletados W0',sub:dlAr(dCol)+' '+Math.abs(dCol).toLocaleString('pt-BR')+' vs '+lb1,scol:dlCl(dCol,false)},{bg:'linear-gradient(135deg,#1a0035,#0e0020)',border:'rgba(162,89,255,.2)',ico:'👤',val:s2.toLocaleString('pt-BR'),lbl:'Sellers W0',sub:dlAr(dS)+' '+Math.abs(dS)+' vs '+lb1,scol:dlCl(dS,false)}].forEach(function(cd){kc.innerHTML+='<div class="comp-kpi" style="background:'+cd.bg+';border-color:'+cd.border+'"><div class="comp-kpi-ico">'+cd.ico+'</div><div class="comp-kpi-val" style="color:'+cd.scol+'">'+cd.val+'</div><div class="comp-kpi-lbl">'+cd.lbl+'</div><div class="comp-kpi-sub" style="color:'+cd.scol+'">'+cd.sub+'</div></div>';});}
+  if(kc){kc.innerHTML='';[{bg:'linear-gradient(135deg,#003020,#001a10)',border:'rgba(0,224,158,.2)',ico:'⚡',val:ef2+'%',lbl:'Eficiência '+lb2,sub:dlAr(dEf)+' '+Math.abs(dEf)+'pp vs '+lb1,scol:dlCl(dEf,false)},{bg:'linear-gradient(135deg,#2d0010,#1a0005)',border:'rgba(255,58,92,.2)',ico:'📦',val:w2.totPnd.toLocaleString('pt-BR'),lbl:'PND '+lb2,sub:dlAr(-dPnd)+' '+Math.abs(dPnd).toLocaleString('pt-BR')+' vs '+lb1,scol:dlCl(-dPnd,false)},{bg:'linear-gradient(135deg,#003040,#001a20)',border:'rgba(0,200,255,.2)',ico:'✅',val:w2.totCol.toLocaleString('pt-BR'),lbl:'Coletados '+lb2,sub:dlAr(dCol)+' '+Math.abs(dCol).toLocaleString('pt-BR')+' vs '+lb1,scol:dlCl(dCol,false)},{bg:'linear-gradient(135deg,#1a0035,#0e0020)',border:'rgba(162,89,255,.2)',ico:'👤',val:s2.toLocaleString('pt-BR'),lbl:'Sellers '+lb2,sub:dlAr(dS)+' '+Math.abs(dS)+' vs '+lb1,scol:dlCl(dS,false)}].forEach(function(cd){kc.innerHTML+='<div class="comp-kpi" style="background:'+cd.bg+';border-color:'+cd.border+'"><div class="comp-kpi-ico">'+cd.ico+'</div><div class="comp-kpi-val" style="color:'+cd.scol+'">'+cd.val+'</div><div class="comp-kpi-lbl">'+cd.lbl+'</div><div class="comp-kpi-sub" style="color:'+cd.scol+'">'+cd.sub+'</div></div>';});}
   dc('cch');var allH=new Set(Object.keys(w1.hubs).concat(Object.keys(w2.hubs)));var hdata=[];
   allH.forEach(function(hub){var h1=w1.hubs[hub]||{pnd:0,col:0},h2=w2.hubs[hub]||{pnd:0,col:0};var e1=hEf(h1.pnd,h1.col),e2=hEf(h2.pnd,h2.col);hdata.push({hub:hub,e1:e1,e2:e2,delta:e2-e1,vol2:h2.pnd+h2.col,pnd2:h2.pnd,col2:h2.col});});
   hdata.sort(function(a,b){return b.vol2-a.vol2;});
