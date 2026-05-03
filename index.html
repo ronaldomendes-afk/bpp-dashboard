@@ -878,23 +878,24 @@ function exportPDF(){
     addChart('cRVH',12,20,130,70);
     addChart('cRVT',152,20,133,70);
 
-    // Tabela resumo HUBs
+    // Tabelas lado a lado — HUBs e Transportadoras na mesma página
     doc.text('Detalhamento por HUB',12,96);
     var hubData=agF('hub');
-    var hvRows=hubData.slice(0,15).map(function(x,i){
+    var hvRows=hubData.slice(0,12).map(function(x,i){
       var rv=PA.hubRV[x[0]]||{rotas:0,veics:0};
-      return[i+1,x[0],rv.rotas,rv.veics,Object.keys(x[1].sl).length,x[1].pend.toLocaleString('pt-BR')];
+      var nm=x[0].length>22?x[0].substring(0,22)+'…':x[0];
+      return[i+1,nm,rv.rotas,rv.veics,Object.keys(x[1].sl).length,x[1].pend.toLocaleString('pt-BR')];
     });
-    doc.autoTable({startY:98,startX:12,tableWidth:130,head:[['#','HUB','Rotas','Ve\u00edculos','Sellers','Vol.Pend.']],body:hvRows,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[37,99,235],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[240,244,255]},margin:{left:12}});
+    doc.autoTable({startY:98,head:[['#','HUB','Rotas','Veículos','Sellers','Vol.Pend.']],body:hvRows,styles:{fontSize:7,cellPadding:1.8},headStyles:{fillColor:[37,99,235],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[240,244,255]},margin:{left:12,right:152},tableWidth:130,didDrawPage:function(){}});
 
-    // Tabela resumo Transportadoras
     doc.text('Detalhamento por Transportadora',152,96);
     var transData=agF('trans');
-    var tvRows=transData.slice(0,15).map(function(x,i){
+    var tvRows=transData.slice(0,12).map(function(x,i){
       var rv=PA.transRV[x[0]]||{rotas:0,veics:0};
-      return[i+1,x[0].length>20?x[0].substring(0,20)+'…':x[0],rv.rotas,rv.veics,Object.keys(x[1].sl).length,x[1].pend.toLocaleString('pt-BR')];
+      var nm=x[0].length>20?x[0].substring(0,20)+'…':x[0];
+      return[i+1,nm,rv.rotas,rv.veics,Object.keys(x[1].sl).length,x[1].pend.toLocaleString('pt-BR')];
     });
-    doc.autoTable({startY:98,head:[['#','Transportadora','Rotas','Ve\u00edculos','Sellers','Vol.Pend.']],body:tvRows,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[234,88,12],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[255,247,237]},margin:{left:152},tableWidth:133});
+    doc.autoTable({startY:98,head:[['#','Transportadora','Rotas','Veículos','Sellers','Vol.Pend.']],body:tvRows,styles:{fontSize:7,cellPadding:1.8},headStyles:{fillColor:[234,88,12],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[255,247,237]},margin:{left:152,right:12},tableWidth:133,didDrawPage:function(){}});
   }
 
   // ════════════════════════════════════════════
@@ -937,4 +938,19 @@ setInterval(uC,30000);
 window.addEventListener('load',function(){uC();});
 </script>
 </body>
-</html>
+</html    // Tabelas lado a lado — HUBs e Transportadoras na mesma página
+    doc.text('Detalhamento por HUB',12,96);
+    var hubData=agF('hub');
+    var hvRows=hubData.slice(0,12).map(function(x,i){
+      var rv=PA.hubRV[x[0]]||{rotas:0,veics:0};
+      return[i+1,x[0].length>22?x[0].substring(0,22)+'…':x[0],rv.rotas,rv.veics,Object.keys(x[1].sl).length,x[1].pend.toLocaleString('pt-BR')];
+    });
+    doc.autoTable({startY:98,head:[['#','HUB','Rotas','Veículos','Sellers','Vol.Pend.']],body:hvRows,styles:{fontSize:7,cellPadding:1.8},headStyles:{fillColor:[37,99,235],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[240,244,255]},margin:{left:12,right:152},tableWidth:130,pageBreak:'avoid'});
+
+    doc.text('Detalhamento por Transportadora',152,96);
+    var transData=agF('trans');
+    var tvRows=transData.slice(0,12).map(function(x,i){
+      var rv=PA.transRV[x[0]]||{rotas:0,veics:0};
+      return[i+1,x[0].length>20?x[0].substring(0,20)+'…':x[0],rv.rotas,rv.veics,Object.keys(x[1].sl).length,x[1].pend.toLocaleString('pt-BR')];
+    });
+    doc.autoTable({startY:98,head:[['#','Transportadora','Rotas','Veículos','Sellers','Vol.Pend.']],body:tvRows,styles:{fontSize:7,cellPadding:1.8},headStyles:{fillColor:[234,88,12],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[255,247,237]},margin:{left:152,right:12},tableWidth:133,pageBreak:'avoid'});>
